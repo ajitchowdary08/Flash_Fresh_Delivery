@@ -20,7 +20,7 @@ class ApiException implements Exception {
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: "http://127.0.0.1:8000/api/v1",
+    defaultValue: "https://flash-fresh.onrender.com/api/v1",
   );
 
   static final List<OrderHistoryModel> _localOrders = [];
