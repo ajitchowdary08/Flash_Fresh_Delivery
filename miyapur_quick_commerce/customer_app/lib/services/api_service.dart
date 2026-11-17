@@ -171,15 +171,19 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final profile = UserProfileModel.fromJson(jsonDecode(response.body));
-        final resolvedName =
-            (savedName != null &&
-                savedName.isNotEmpty &&
-                savedName != "Customer")
-            ? savedName
-            : (profile.name.isNotEmpty ? profile.name : "Valued Customer");
-        final resolvedEmail = savedEmail.isNotEmpty
-            ? savedEmail
-            : profile.email;
+        final resolvedName = (profile.name.isNotEmpty && !profile.name.startsWith("Customer ("))
+            ? profile.name
+            : ((savedName != null && savedName.isNotEmpty && savedName != "Customer")
+                ? savedName
+                : (profile.name.isNotEmpty ? profile.name : "Valued Customer"));
+        final resolvedEmail = profile.email.isNotEmpty ? profile.email : savedEmail;
+
+        if (resolvedName.isNotEmpty && resolvedName != "Valued Customer") {
+          await prefs.setString("user_name", resolvedName);
+        }
+        if (resolvedEmail.isNotEmpty) {
+          await prefs.setString("user_email", resolvedEmail);
+        }
 
         return UserProfileModel(
           id: profile.id,
