@@ -326,7 +326,7 @@ class ApiService {
             headers: {"Content-Type": "application/json"},
             body: jsonEncode({"name": name, "email": email}),
           )
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 15));
 
       return response.statusCode == 200;
     } catch (_) {}
@@ -433,7 +433,7 @@ class ApiService {
               "is_default": isDefault,
             }),
           )
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 15));
 
       return response.statusCode == 200;
     } catch (_) {}
@@ -519,7 +519,7 @@ class ApiService {
             headers: {"Content-Type": "application/json"},
             body: jsonEncode({"code": code, "items_total": itemsTotal}),
           )
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 15));
 
       return jsonDecode(response.body);
     } catch (_) {}
@@ -884,7 +884,7 @@ class ApiService {
               "delivery_instructions": deliveryInstructions,
             }),
           )
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -934,7 +934,7 @@ class ApiService {
               "payment_method": paymentMethod,
             }),
           )
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -1048,7 +1048,7 @@ class ApiService {
             headers: {"Content-Type": "application/json"},
             body: jsonEncode({"rating": rating, "review": review}),
           )
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 15));
 
       return response.statusCode == 200;
     } catch (_) {}

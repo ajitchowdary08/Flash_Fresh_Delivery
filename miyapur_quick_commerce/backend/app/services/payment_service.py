@@ -1,3 +1,4 @@
+import os
 import hmac
 import hashlib
 import base64
@@ -56,7 +57,7 @@ class PaymentService:
                 "customer_name": customer_name or "Customer"
             },
             "order_meta": {
-                "return_url": "http://127.0.0.1:8000/api/v1/payments/cashfree/return?order_id={order_id}"
+                "return_url": os.getenv("BACKEND_PUBLIC_URL", "https://flash-fresh.onrender.com") + "/api/v1/payments/cashfree/return?order_id={order_id}"
             }
         }
 
