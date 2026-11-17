@@ -876,6 +876,332 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showEditAddressDialog(SavedAddressModel addr) {
+    final flatCtrl = TextEditingController(text: addr.houseNumber);
+    final streetCtrl = TextEditingController(text: addr.streetAddress);
+    final landmarkCtrl = TextEditingController(text: addr.landmark);
+    String selectedTag = addr.label;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: GlassCard(
+            blur: 24,
+            opacity: 0.96,
+            borderRadius: 28,
+            borderColor: Colors.grey.shade300,
+            padding: const EdgeInsets.all(22),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: const Color(0xFF059669).withOpacity(0.12),
+                        child: const Icon(
+                          Icons.edit_location_alt_rounded,
+                          color: Color(0xFF059669),
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Edit Delivery Address",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 17,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                            Text(
+                              "Update house number, street, or landmark",
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24, color: Colors.black12),
+
+                  const Text(
+                    "Address Label",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      {"tag": "Home", "icon": Icons.home_rounded},
+                      {"tag": "Work", "icon": Icons.business_rounded},
+                      {"tag": "Other", "icon": Icons.place_rounded},
+                    ].map((item) {
+                      final tag = item["tag"] as String;
+                      final icon = item["icon"] as IconData;
+                      final isSel = selectedTag == tag;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                          avatar: Icon(
+                            icon,
+                            size: 16,
+                            color: isSel ? Colors.white : const Color(0xFF059669),
+                          ),
+                          label: Text(
+                            tag,
+                            style: TextStyle(
+                              color: isSel ? Colors.white : const Color(0xFF111827),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                          selected: isSel,
+                          selectedColor: const Color(0xFF059669),
+                          backgroundColor: Colors.grey.shade100,
+                          onSelected: (val) {
+                            if (val) setModalState(() => selectedTag = tag);
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  const Text(
+                    "House / Flat / Floor No.",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: TextField(
+                      controller: flatCtrl,
+                      style: const TextStyle(
+                        color: Color(0xFF111827),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: "e.g. Flat 402, Block A",
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 13,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.home_outlined,
+                          color: Color(0xFF059669),
+                          size: 20,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  const Text(
+                    "Street / Area / Colony",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: TextField(
+                      controller: streetCtrl,
+                      style: const TextStyle(
+                        color: Color(0xFF111827),
+                        fontSize: 14,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: "e.g. Allwyn Colony Road, Hyderabad",
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 13,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.map_outlined,
+                          color: Color(0xFF059669),
+                          size: 20,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  const Text(
+                    "Landmark (Optional)",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: TextField(
+                      controller: landmarkCtrl,
+                      style: const TextStyle(
+                        color: Color(0xFF111827),
+                        fontSize: 14,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: "e.g. Near Metro Pillar 84",
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 13,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.near_me_outlined,
+                          color: Color(0xFF059669),
+                          size: 20,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            side: BorderSide(color: Colors.grey.shade400),
+                          ),
+                          child: const Text(
+                            "Cancel",
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF059669),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          onPressed: () async {
+                            final flatText = flatCtrl.text.trim();
+                            final streetText = streetCtrl.text.trim();
+                            final landmarkText = landmarkCtrl.text.trim();
+
+                            if (flatText.isEmpty || streetText.isEmpty) {
+                              LiquidToast.show(
+                                context,
+                                message: "Please enter Flat/House No. & Street Address",
+                                icon: Icons.warning_amber_rounded,
+                                accentColor: Colors.redAccent,
+                              );
+                              return;
+                            }
+
+                            Navigator.pop(ctx);
+                            await ApiService.deleteSavedAddress(widget.userId, addr.id);
+                            await ApiService.addSavedAddress(
+                              userId: widget.userId,
+                              label: selectedTag,
+                              houseNumber: flatText,
+                              streetAddress: streetText,
+                              landmark: landmarkText,
+                              latitude: addr.latitude,
+                              longitude: addr.longitude,
+                            );
+
+                            if (!mounted) return;
+                            _fetchProfileAndAddresses();
+                            LiquidToast.show(
+                              context,
+                              message: "📍 Delivery address updated successfully",
+                              icon: Icons.check_circle_rounded,
+                              accentColor: const Color(0xFF059669),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.check_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            "Update Address",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LiquidBackground(
@@ -1278,6 +1604,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ],
                                   ),
+                                ),
+
+                                // Edit & Delete Action Buttons
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        size: 18,
+                                        color: Color(0xFF059669),
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () => _showEditAddressDialog(addr),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                        size: 18,
+                                        color: Colors.redAccent,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () async {
+                                        await ApiService.deleteSavedAddress(widget.userId, addr.id);
+                                        _fetchProfileAndAddresses();
+                                        if (mounted) {
+                                          LiquidToast.show(
+                                            context,
+                                            message: "Address removed",
+                                            icon: Icons.delete_forever_rounded,
+                                            accentColor: Colors.redAccent,
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
