@@ -46,7 +46,7 @@ class RiderApiService {
     return isOnline;
   }
 
-  // 3. Get Available Orders in Miyapur Zone
+  // 3. Get Available Orders
   static Future<List<RiderOrderModel>> getAvailableOrders() async {
     try {
       final res = await http.get(Uri.parse("$baseUrl/rider/orders/available")).timeout(const Duration(seconds: 3));
@@ -63,7 +63,7 @@ class RiderApiService {
         status: "PACKED",
         itemsCount: 3,
         distanceKm: 2.1,
-        deliveryAddress: "Madinaguda Central (Opp. GSM Mall), Miyapur",
+        deliveryAddress: "Madinaguda Central (Opp. GSM Mall), Hyderabad",
         grandTotal: 340.0,
         payoutAmount: 45.0,
         pickupHub: "Central Dark Store Hub (Metro Pillar 84)",

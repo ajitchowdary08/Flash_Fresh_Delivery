@@ -40,7 +40,7 @@ def verify_payment(req: VerifyPaymentPayload, db: Session = Depends(get_db)):
         "order_number": order.order_number,
         "payment_status": order.payment_status,
         "order_status": order.status,
-        "message": "Payment verified successfully. Order sent to Miyapur Dark Store packing station."
+        "message": "Payment verified successfully. Order sent to Dark Store packing station."
     }
 
 @router.get("/cashfree-checkout/{order_id}", response_class=HTMLResponse)
@@ -274,7 +274,7 @@ def verify_cashfree_payment(
             "payment_status": order.payment_status,
             "order_status": order.status,
             "gateway_status": status,
-            "message": "Payment verified successfully. Order sent to Miyapur Dark Store packing station.",
+            "message": "Payment verified successfully. Order sent to Dark Store packing station.",
         }
 
     if is_failed and order.status not in ("CANCELLED", "DELIVERED"):

@@ -1,6 +1,6 @@
 @echo off
 echo ========================================================
-echo Starting Miyapur Quick Commerce Backend (FastAPI)
+echo Starting Flash Fresh Quick Commerce Backend (FastAPI)
 echo https://flash-fresh.onrender.com
 echo API Docs: https://flash-fresh.onrender.com/docs
 echo ========================================================

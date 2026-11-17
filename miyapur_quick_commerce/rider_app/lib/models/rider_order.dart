@@ -53,10 +53,10 @@ class RiderOrderModel {
       status: json['status'] ?? 'PLACED',
       itemsCount: json['items_count'] ?? 1,
       distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 1.5,
-      deliveryAddress: json['delivery_address'] ?? 'Miyapur, Hyderabad',
+      deliveryAddress: json['delivery_address'] ?? 'Hyderabad',
       grandTotal: (json['grand_total'] as num?)?.toDouble() ?? 0.0,
       payoutAmount: (json['payout_amount'] as num?)?.toDouble() ?? 45.0,
-      pickupHub: json['pickup_hub'] ?? 'Miyapur Central Dark Store',
+      pickupHub: json['pickup_hub'] ?? 'Flash Fresh Central Dark Store',
       customerPhone: json['customer_phone'] ?? '+91 98765 43210',
       items: rawItems.map((i) => RiderOrderItem.fromJson(i)).toList(),
     );

@@ -1,6 +1,6 @@
 @echo off
 echo ========================================================
-echo       MIYAPUR QUICK COMMERCE - LIVE DATABASE VIEWER
+echo       FLASH FRESH QUICK COMMERCE - LIVE DATABASE VIEWER
 echo ========================================================
 echo.
 cd /d "%~dp0backend"

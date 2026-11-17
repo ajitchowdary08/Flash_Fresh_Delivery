@@ -28,9 +28,9 @@
 	<true/>
 	<!-- Geolocator: required location permission strings for GPS detection -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>We use your location to check if you are within our 10 KM delivery radius from the Miyapur Central Hub.</string>
+	<string>We use your location to deliver fresh items to your doorstep.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>We use your location to check if you are within our 10 KM delivery radius from the Miyapur Central Hub.</string>
+	<string>We use your location to deliver fresh items to your doorstep.</string>
 	<!-- Google Maps API key (iOS). Keep this in sync with the Android meta-data in AndroidManifest.xml -->
 	<key>GoogleMapsApiKey</key>
 	<string>AIzaSyBNnGocMHDAzc9cV61uTeHFpbKiogeIWas</string>

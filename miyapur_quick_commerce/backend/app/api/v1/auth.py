@@ -270,11 +270,6 @@ def add_saved_address(user_id: str, req: CreateAddressRequest, db: Session = Dep
     target_user_id = user.id
 
     service_info = maps_service.check_serviceability(req.latitude, req.longitude)
-    if not service_info["is_serviceable"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"This address is {service_info['distance_km']} KM away, which is outside our 10 KM delivery radius from Miyapur Central Hub."
-        )
 
     # If this is marked default, unset existing default
     if req.is_default:

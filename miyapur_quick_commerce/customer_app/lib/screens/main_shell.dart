@@ -214,6 +214,7 @@ class _MainShellState extends State<MainShell> {
               currentLocation: _currentLocation,
               cartItems: _cartItems,
               userId: _userId,
+              isLoggedIn: true,
               favoriteProductIds: _favoriteProductIds,
               onToggleFavorite: _toggleFavorite,
               onLocationChanged: (loc) => _updateActiveLocation(loc),
@@ -267,11 +268,25 @@ class _MainShellState extends State<MainShell> {
               currentLocation: _currentLocation,
               cartItems: _cartItems,
               userId: _userId,
+              isLoggedIn: false,
               favoriteProductIds: _favoriteProductIds,
               onToggleFavorite: _toggleFavorite,
               onLocationChanged: (loc) => _updateActiveLocation(loc),
               onAddToCart: _addToCart,
               onCartUpdated: () => setState(() {}),
+              onOpenLogin: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AuthScreen(
+                      onLoginSuccess: (phone, name, id) {
+                        _saveSession(phone, name, id);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                );
+              },
               onOpenCart: () {
                 Navigator.push(
                   context,

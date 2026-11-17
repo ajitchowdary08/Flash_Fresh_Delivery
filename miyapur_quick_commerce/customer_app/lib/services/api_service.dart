@@ -29,111 +29,10 @@ class ApiService {
   /// Verified from https://maps.app.goo.gl/5fc6a8ZMgjfttUiB9
   static const double hubLatitude = 17.495101;
   static const double hubLongitude = 78.367535;
-  static const double maxDeliveryRadiusKm = 10.0;
+  static const double maxDeliveryRadiusKm = 999.0;
 
   static final List<LocationModel> fallbackLocations = [];
-
-  static final List<LocationModel> nearbyLocations = [
-    LocationModel(
-      id: "nearby_1",
-      name: "Miyapur Metro Station",
-      address: "Beside Metro Pillar 84, Miyapur, Hyderabad",
-      latitude: 17.4968,
-      longitude: 78.3614,
-      landmark: "Miyapur Metro Station",
-      distanceKm: 0.68,
-      isServiceable: true,
-      etaMinutes: 9,
-    ),
-    LocationModel(
-      id: "nearby_2",
-      name: "Allwyn X Roads",
-      address: "Allwyn Colony Main Road, Miyapur, Hyderabad",
-      latitude: 17.4985,
-      longitude: 78.3720,
-      landmark: "Allwyn Junction",
-      distanceKm: 0.61,
-      isServiceable: true,
-      etaMinutes: 8,
-    ),
-    LocationModel(
-      id: "nearby_3",
-      name: "Madinaguda Central",
-      address: "Opposite GSM Mall, Madinaguda, Hyderabad",
-      latitude: 17.4920,
-      longitude: 78.3520,
-      landmark: "GSM Mall",
-      distanceKm: 1.68,
-      isServiceable: true,
-      etaMinutes: 10,
-    ),
-    LocationModel(
-      id: "nearby_4",
-      name: "Hafeezpet MMTS Station",
-      address: "Hafeezpet Road, Hyderabad",
-      latitude: 17.4812,
-      longitude: 78.3651,
-      landmark: "Railway Bridge",
-      distanceKm: 1.57,
-      isServiceable: true,
-      etaMinutes: 10,
-    ),
-    LocationModel(
-      id: "nearby_5",
-      name: "Chandanagar Rythu Bazar",
-      address: "Chandanagar Main Road, Hyderabad",
-      latitude: 17.4895,
-      longitude: 78.3390,
-      landmark: "Rythu Bazar",
-      distanceKm: 3.09,
-      isServiceable: true,
-      etaMinutes: 12,
-    ),
-    LocationModel(
-      id: "nearby_6",
-      name: "Nizampet Village & Road",
-      address: "Nizampet Main Road, Hyderabad",
-      latitude: 17.5180,
-      longitude: 78.3820,
-      landmark: "Gram Panchayat",
-      distanceKm: 2.97,
-      isServiceable: true,
-      etaMinutes: 12,
-    ),
-    LocationModel(
-      id: "nearby_7",
-      name: "KPHB Colony / JNTU",
-      address: "KPHB Phase 1, Kukatpally, Hyderabad",
-      latitude: 17.4980,
-      longitude: 78.3910,
-      landmark: "JNTU Main Gate",
-      distanceKm: 2.51,
-      isServiceable: true,
-      etaMinutes: 11,
-    ),
-    LocationModel(
-      id: "nearby_8",
-      name: "Bachupally X Roads",
-      address: "Bachupally, Hyderabad",
-      latitude: 17.5350,
-      longitude: 78.3650,
-      landmark: "Silver Oaks Road",
-      distanceKm: 4.44,
-      isServiceable: true,
-      etaMinutes: 14,
-    ),
-    LocationModel(
-      id: "nearby_9",
-      name: "Kondapur Botanical Garden",
-      address: "Botanical Garden Road, Kondapur, Hyderabad",
-      latitude: 17.4580,
-      longitude: 78.3650,
-      landmark: "Heritage Fresh",
-      distanceKm: 4.13,
-      isServiceable: true,
-      etaMinutes: 14,
-    ),
-  ];
+  static final List<LocationModel> nearbyLocations = [];
 
   static Future<Map<String, dynamic>> sendOtp(String phone) async {
     try {
@@ -359,17 +258,60 @@ class ApiService {
         List<SavedAddressModel> apiAddrs = data
             .map((x) => SavedAddressModel.fromJson(x))
             .toList();
-        final existingIds = apiAddrs.map((a) => a.id).toSet();
+
+        final existingKeys = apiAddrs
+            .map((a) => "${a.label.toLowerCase()}_${a.houseNumber.toLowerCase().replaceAll(' ', '')}_${a.streetAddress.toLowerCase().replaceAll(' ', '')}")
+            .toSet();
+
         for (var locAddr in localAddrs) {
-          if (!existingIds.contains(locAddr.id)) {
+          final locKey = "${locAddr.label.toLowerCase()}_${locAddr.houseNumber.toLowerCase().replaceAll(' ', '')}_${locAddr.streetAddress.toLowerCase().replaceAll(' ', '')}";
+          if (!apiAddrs.any((a) => a.id == locAddr.id) && !existingKeys.contains(locKey)) {
             apiAddrs.add(locAddr);
+            existingKeys.add(locKey);
           }
         }
         return apiAddrs;
       }
     } catch (_) {}
 
-    return localAddrs;
+    final uniqueLocal = <String, SavedAddressModel>{};
+    for (var a in localAddrs) {
+      final key = "${a.label.toLowerCase()}_${a.houseNumber.toLowerCase().replaceAll(' ', '')}_${a.streetAddress.toLowerCase().replaceAll(' ', '')}";
+      uniqueLocal[key] = a;
+    }
+    return uniqueLocal.values.toList();
+  }
+
+  static Future<bool> deleteSavedAddress(String userId, String addressId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final rawLocalAddrs = prefs.getStringList("saved_addrs_$userId") ?? [];
+    final globalAddrs = prefs.getStringList("global_saved_addrs") ?? [];
+
+    rawLocalAddrs.removeWhere((str) {
+      try {
+        return jsonDecode(str)['id'] == addressId;
+      } catch (_) {
+        return false;
+      }
+    });
+    globalAddrs.removeWhere((str) {
+      try {
+        return jsonDecode(str)['id'] == addressId;
+      } catch (_) {
+        return false;
+      }
+    });
+
+    await prefs.setStringList("saved_addrs_$userId", rawLocalAddrs);
+    await prefs.setStringList("global_saved_addrs", globalAddrs);
+
+    try {
+      final response = await http
+          .delete(Uri.parse("$baseUrl/auth/addresses/$addressId"))
+          .timeout(const Duration(seconds: 10));
+      return response.statusCode == 200;
+    } catch (_) {}
+    return true;
   }
 
   static Future<bool> addSavedAddress({
@@ -532,14 +474,14 @@ class ApiService {
         "discount_amount": disc,
         "message": "Coupon ZEPTO50 applied! Saved ₹${disc.toStringAsFixed(0)}.",
       };
-    } else if (code.toUpperCase() == "MIYAPUR100" && itemsTotal >= 299) {
+    } else if (code.toUpperCase() == "FLASH100" && itemsTotal >= 299) {
       double disc = (itemsTotal * 0.25).clamp(0, 100);
       return {
         "success": true,
-        "code": "MIYAPUR100",
+        "code": "FLASH100",
         "discount_amount": disc,
         "message":
-            "Coupon MIYAPUR100 applied! Saved ₹${disc.toStringAsFixed(0)}.",
+            "Coupon FLASH100 applied! Saved ₹${disc.toStringAsFixed(0)}.",
       };
     }
 
@@ -628,6 +570,27 @@ class ApiService {
     return _localServiceability(lat, lng);
   }
 
+  static double _calcDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371.0;
+    double dLat = _rad(lat2 - lat1);
+    double dLng = _rad(lon2 - lon1);
+    double a = (math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_rad(lat1)) *
+            math.cos(_rad(lat2)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2));
+    double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return double.parse((R * c).toStringAsFixed(2));
+  }
+
+  static Map<String, String> _resolveNearestArea(double lat, double lng) {
+    return {
+      "name": "Selected Location",
+      "address": "Location at ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}, Hyderabad, Telangana 500049, India",
+      "landmark": "Hyderabad"
+    };
+  }
+
   static Future<Map<String, dynamic>> reverseGeocode(
     double lat,
     double lng,
@@ -645,20 +608,21 @@ class ApiService {
       }
     } catch (_) {}
     final local = _localServiceability(lat, lng);
+    final resolved = _resolveNearestArea(lat, lng);
     return {
       "id": "gps_${lat.toStringAsFixed(5)}_${lng.toStringAsFixed(5)}",
-      "name": "Detected Location",
-      "address": "GPS (${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)})",
-      "landmark": "",
+      "name": resolved["name"] ?? "Selected Location",
+      "address": resolved["address"] ?? "Hyderabad, Telangana, India",
+      "landmark": resolved["landmark"] ?? "",
       "latitude": lat,
       "longitude": lng,
       "distance_km": local["distance_km"],
-      "is_serviceable": local["is_serviceable"],
+      "is_serviceable": true,
       "eta_minutes": local["estimated_delivery_minutes"],
       "message": local["message"],
       "store_latitude": hubLatitude,
       "store_longitude": hubLongitude,
-      "max_allowed_radius_km": maxDeliveryRadiusKm,
+      "max_allowed_radius_km": 999.0,
     };
   }
 

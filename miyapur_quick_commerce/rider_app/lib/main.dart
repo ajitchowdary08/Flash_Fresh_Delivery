@@ -3,11 +3,11 @@ import 'screens/rider_home_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MiyapurRiderApp());
+  runApp(const FlashFreshRiderApp());
 }
 
-class MiyapurRiderApp extends StatelessWidget {
-  const MiyapurRiderApp({super.key});
+class FlashFreshRiderApp extends StatelessWidget {
+  const FlashFreshRiderApp({super.key});
 
   @override
   Widget build(BuildContext context) {

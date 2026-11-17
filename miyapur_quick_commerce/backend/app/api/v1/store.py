@@ -8,7 +8,7 @@ from app.database.db import get_db
 from app.models.models import Order, Product, ProductVariant, Category
 from app.api.v1.orders import ws_manager
 
-router = APIRouter(prefix="/store", tags=["Dark Store Hub Operations (Miyapur)"])
+router = APIRouter(prefix="/store", tags=["Dark Store Hub Operations"])
 
 class StockUpdateRequest(BaseModel):
     variant_id: str
@@ -32,7 +32,7 @@ def get_store_dashboard_summary(db: Session = Depends(get_db)):
 
     return {
         "store_name": "Central Fulfillment Dark Store Hub",
-        "service_radius": "10 KM",
+        "service_radius": "Full City Delivery",
         "orders_to_pack": len(pending_pack),
         "orders_ready_for_pickup": len(packed),
         "orders_in_transit": len(out_for_delivery),
@@ -43,7 +43,7 @@ def get_store_dashboard_summary(db: Session = Depends(get_db)):
 @router.get("/packing-queue")
 def get_packing_queue(db: Session = Depends(get_db)):
     """
-    Live queue of orders needing weighing, packing & bagging at Miyapur hub.
+    Live queue of orders needing weighing, packing & bagging at central hub.
     """
     orders = db.query(Order).filter(Order.status.in_(["PLACED", "PACKED"])).order_by(Order.created_at.asc()).all()
     
@@ -188,7 +188,7 @@ class RecordMeatWeightRequest(BaseModel):
 @router.get("/riders/active")
 def get_active_riders():
     """
-    Returns fleet partners available around the Miyapur Dark Store Hub.
+    Returns fleet partners available around the Central Dark Store Hub.
     """
     return ACTIVE_RIDERS
 

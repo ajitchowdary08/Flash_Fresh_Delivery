@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 /// Generates high-fidelity, Zomato/Zepto-style animated bitmap markers for live
-/// quick-commerce order tracking in Miyapur:
+/// quick-commerce order tracking:
 ///
 /// 1. [createZomatoBikeMarker]: Custom delivery bike with floating ETA badge ("⚡ ~8 mins")
 ///    and directional heading indicator.
@@ -281,7 +281,7 @@ class BikeMarkerIcon {
     // Text
     final textPainter = TextPainter(
       text: const TextSpan(
-        text: "🏬 MIYAPUR DARK STORE",
+        text: "🏬 FLASH FRESH HUB",
         style: TextStyle(
           color: Colors.white,
           fontSize: 9.5,

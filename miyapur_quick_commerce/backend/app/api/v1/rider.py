@@ -71,7 +71,7 @@ def get_available_orders(db: Session = Depends(get_db)):
             "grand_total": o.grand_total,
             "payout_amount": payout,
             "scheduled_slot": o.scheduled_slot,
-            "pickup_hub": "Miyapur Central Dark Store (Metro Pillar 84)",
+            "pickup_hub": "Flash Fresh Central Dark Store (Metro Pillar 84)",
             "customer_phone": "+91 98765 43210",
             "rider_lat": o.rider_lat,
             "rider_lng": o.rider_lng,
@@ -122,13 +122,13 @@ async def accept_order(order_id: str, db: Session = Depends(get_db)):
         "order_id": order.id,
         "order_number": order.order_number,
         "status": order.status,
-        "message": f"Order {order.order_number} accepted! Proceed to Miyapur Dark Store Hub for pickup."
+        "message": f"Order {order.order_number} accepted! Proceed to Central Dark Store Hub for pickup."
     }
 
 @router.post("/orders/{order_id}/pickup")
 async def pickup_order(order_id: str, db: Session = Depends(get_db)):
     """
-    Rider collects packed bag from Miyapur Hub and departs.
+    Rider collects packed bag from Central Hub and departs.
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:

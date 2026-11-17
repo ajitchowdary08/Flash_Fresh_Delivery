@@ -5,7 +5,7 @@ from app.schemas.schemas import GeofenceCheckRequest
 from app.services.maps_service import maps_service
 from app.core.config import settings
 
-router = APIRouter(prefix="/maps", tags=["Google Maps & 10KM Geofence"])
+router = APIRouter(prefix="/maps", tags=["Google Maps & Geocoding Service"])
 
 
 class ReverseGeocodeRequest(BaseModel):

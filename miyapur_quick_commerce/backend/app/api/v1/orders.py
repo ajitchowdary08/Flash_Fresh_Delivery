@@ -98,11 +98,6 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
             }
 
     service_info = maps_service.check_serviceability(req.latitude, req.longitude)
-    if not service_info["is_serviceable"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Delivery address is {service_info['distance_km']} KM away, which exceeds our 10.0 KM service boundary from Miyapur Central Hub."
-        )
 
     validated_items = []
     items_total = 0.0
@@ -379,7 +374,7 @@ def get_order_tracking(order_id: str, db: Session = Depends(get_db)):
 
     steps = [
         {"status": "PLACED", "title": "Order Placed & Confirmed", "completed": True, "time": "Just now"},
-        {"status": "PACKED", "title": "Packed & Weighed at Miyapur Hub", "completed": order.status in ["PACKED", "OUT_FOR_DELIVERY", "DELIVERED"], "time": "2 mins ago"},
+        {"status": "PACKED", "title": "Packed & Weighed at Central Hub", "completed": order.status in ["PACKED", "OUT_FOR_DELIVERY", "DELIVERED"], "time": "2 mins ago"},
         {"status": "OUT_FOR_DELIVERY", "title": "Rider On the Way", "completed": order.status in ["OUT_FOR_DELIVERY", "DELIVERED"], "time": "5 mins ago"},
         {"status": "DELIVERED", "title": "Delivered to Doorstep", "completed": order.status == "DELIVERED", "time": "Arrived"}
     ]

@@ -373,16 +373,6 @@ class _CartScreenState extends State<CartScreen> {
                   finalEta = (svc["estimated_delivery_minutes"] as num?)?.toInt() ?? 10;
                 }
 
-                if (!finalSvc) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Address outside our 10 KM delivery radius from Miyapur Central Hub."),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
                 Navigator.pop(ctx);
 
                 final newLoc = LocationModel(
@@ -441,19 +431,6 @@ class _CartScreenState extends State<CartScreen> {
 
     if (isAddressUnset) {
       _showMandatoryAddressPrompt();
-      return;
-    }
-
-    // 2. Geofence Radius Check
-    if (!_activeLocation.isServiceable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Cannot checkout: Address is outside our 10 KM delivery radius from Central Hub.",
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
       return;
     }
 

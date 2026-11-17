@@ -12,7 +12,7 @@ import '../widgets/bike_marker_icon.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/liquid_toast.dart';
 
-/// Miyapur Central Dark Store Hub (exact Google Maps pin).
+/// Flash Fresh Central Dark Store Hub (exact Google Maps pin).
 /// Verified from https://maps.app.goo.gl/5fc6a8ZMgjfttUiB9
 const double _kHubLatitude = 17.495101;
 const double _kHubLongitude = 78.367535;
@@ -612,7 +612,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
       statusIcon = Icons.inventory_2_rounded;
     } else if (_currentStatus == "OUT_FOR_DELIVERY") {
       statusTitle = "On the Way to Your Doorstep";
-      statusSubtitle = "Rider navigating via Miyapur Main Road";
+      statusSubtitle = "Rider navigating via Central Main Road";
       statusIcon = Icons.two_wheeler_rounded;
     } else if (_currentStatus == "DELIVERED") {
       statusTitle = "Delivered Successfully! 🎉";
@@ -772,8 +772,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             _hubIcon ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         infoWindow: const InfoWindow(
-          title: "Miyapur Central Dark Store Hub",
-          snippet: "10 KM delivery radius • Metro Pillar 84",
+          title: "Flash Fresh Central Dark Store Hub",
+          snippet: "Metro Pillar 84",
         ),
       ),
     );

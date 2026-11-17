@@ -15,7 +15,7 @@ init_db()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="Hyperlocal Quick-Commerce API (10KM Miyapur Radius) with Mock OTP, Cashfree PG & Mock Google Maps",
+    description="Hyperlocal Quick-Commerce API with OTP, Cashfree PG & Google Maps",
     version="1.0.0"
 )
 

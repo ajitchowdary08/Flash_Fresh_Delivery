@@ -42,13 +42,13 @@ class Settings:
     # Google Maps Platform (Places Autocomplete, Geocoding, Distance Matrix)
     GOOGLE_MAPS_API_KEY: str = os.getenv("GOOGLE_MAPS_API_KEY", "")
 
-    # Central Dark Store Hub — Miyapur (exact Google Maps pin, 10 KM Radius).
+    # Central Dark Store Hub (exact Google Maps pin).
     # Verified from https://maps.app.goo.gl/5fc6a8ZMgjfttUiB9
     STORE_LATITUDE: float = float(os.getenv("STORE_LATITUDE", "17.495101"))
     STORE_LONGITUDE: float = float(os.getenv("STORE_LONGITUDE", "78.367535"))
-    MAX_DELIVERY_RADIUS_KM: float = float(os.getenv("MAX_DELIVERY_RADIUS_KM", "10.0"))
-    STORE_NAME: str = os.getenv("STORE_NAME", "Central Dark Store Hub")
-    STORE_ADDRESS: str = os.getenv("STORE_ADDRESS", "Beside Metro Pillar 84, Miyapur, Hyderabad, Telangana 500049")
+    MAX_DELIVERY_RADIUS_KM: float = float(os.getenv("MAX_DELIVERY_RADIUS_KM", "999.0"))
+    STORE_NAME: str = os.getenv("STORE_NAME", "Flash Fresh Central Dark Store")
+    STORE_ADDRESS: str = os.getenv("STORE_ADDRESS", "Central Dark Store Hub, Metro Pillar 84, Hyderabad, Telangana 500049")
 
     # Database & Redis Infrastructure
     _raw_db_url: str = os.getenv("DATABASE_URL", "sqlite:///./quick_commerce.db")

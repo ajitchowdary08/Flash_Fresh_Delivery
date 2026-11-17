@@ -204,7 +204,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                                 const Text("Waiting for New Orders...", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                 const SizedBox(height: 6),
                                 Text(
-                                  "Scanning 10 KM delivery zone",
+                                  "Scanning for active orders",
                                   style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                                 ),
                                 const SizedBox(height: 16),

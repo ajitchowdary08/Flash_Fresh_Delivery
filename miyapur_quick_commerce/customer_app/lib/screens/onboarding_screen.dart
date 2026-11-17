@@ -29,9 +29,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     },
     {
       "icon": Icons.radar_rounded,
-      "badge": "📍 10 KM SERVICE RADIUS",
+      "badge": "📍 FAST CITYWIDE DELIVERY",
       "title": "Precision Central Dark Store",
-      "description": "Strict 10.0 KM delivery radius from Metro Pillar 84 for guaranteed speed, store quality inspection, and zero delays.",
+      "description": "Direct delivery from Metro Pillar 84 for guaranteed speed, store quality inspection, and zero delays.",
     },
   ];
 

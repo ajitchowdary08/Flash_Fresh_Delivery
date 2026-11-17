@@ -190,10 +190,16 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
       // 3. Authoritative geofence check through the backend.
       final res = await ApiService.reverseGeocode(position.latitude, position.longitude);
 
+      final title = res["name"] ?? "Detected Location";
+      String addr = (res["address"] ?? "").toString();
+      if (addr.isEmpty || addr.startsWith("GPS (")) {
+        addr = "$title, Hafeezpet, Miyapur, Hyderabad, Telangana 500049";
+      }
+
       final detected = LocationModel(
         id: res["id"] ?? "gps_${position.latitude}_${position.longitude}",
-        name: res["name"] ?? "Detected Location",
-        address: res["address"] ?? "GPS (${position.latitude}, ${position.longitude})",
+        name: title,
+        address: addr,
         latitude: (res["latitude"] ?? position.latitude).toDouble(),
         longitude: (res["longitude"] ?? position.longitude).toDouble(),
         landmark: res["landmark"] ?? "",
@@ -217,11 +223,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
 
       if (!mounted) return;
       _showGeofenceBanner(
-        title: detected.isServiceable ? "You're in our delivery zone!" : "Delivery Not Available",
-        message: detected.isServiceable
-            ? "Detected ${detected.distanceKm} KM from the Miyapur hub. ETA ~${detected.etaMinutes} mins."
-            : "Your detected location is ${detected.distanceKm} KM away, which is outside our 10 KM delivery radius from the Miyapur Central Hub.",
-        serviceable: detected.isServiceable,
+        title: "Location Detected!",
+        message: "Detected location. ETA ~${detected.etaMinutes} mins.",
+        serviceable: true,
       );
     } catch (e) {
       if (mounted) {
@@ -473,7 +477,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                   decoration: const InputDecoration(
                     labelText: "Street / Area / Colony",
                     labelStyle: TextStyle(color: Colors.black54),
-                    hintText: "e.g. Near Metro, Miyapur",
+                    hintText: "e.g. Near Metro, Hyderabad",
                     hintStyle: TextStyle(color: Colors.black38, fontSize: 12),
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -494,7 +498,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  "Delivery available strictly within 10 KM from Miyapur Central Dark Store Hub.",
+                  "Fast citywide delivery from Flash Fresh Central Dark Store.",
                   style: TextStyle(fontSize: 10, color: Colors.black54),
                 ),
               ],
@@ -718,7 +722,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                                 color: Color(0xFF111827)),
                           ),
                           Text(
-                            "10 KM boundary from Miyapur Central Hub",
+                            "Select delivery address",
                             style:
                                 TextStyle(fontSize: 11, color: Colors.black54),
                           ),

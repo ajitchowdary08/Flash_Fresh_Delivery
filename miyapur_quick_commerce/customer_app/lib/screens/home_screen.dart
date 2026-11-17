@@ -4,30 +4,34 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/liquid_toast.dart';
-import 'location_picker_sheet.dart';
+import 'select_location_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final LocationModel currentLocation;
   final List<CartItemModel> cartItems;
   final String? userId;
+  final bool isLoggedIn;
   final Set<String> favoriteProductIds;
   final Function(String productId)? onToggleFavorite;
   final Function(LocationModel location) onLocationChanged;
   final Function(ProductModel product, ProductVariantModel variant) onAddToCart;
   final VoidCallback onCartUpdated;
   final VoidCallback onOpenCart;
+  final VoidCallback? onOpenLogin;
 
   const HomeScreen({
     super.key,
     required this.currentLocation,
     required this.cartItems,
     required this.userId,
+    this.isLoggedIn = false,
     this.favoriteProductIds = const {},
     this.onToggleFavorite,
     required this.onLocationChanged,
     required this.onAddToCart,
     required this.onCartUpdated,
     required this.onOpenCart,
+    this.onOpenLogin,
   });
 
   @override
@@ -142,6 +146,21 @@ class _HomeScreenState extends State<HomeScreen> {
     return list;
   }
 
+  void _openSelectLocationScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SelectLocationScreen(
+          currentLocation: widget.currentLocation,
+          userId: widget.userId,
+          isLoggedIn: widget.isLoggedIn,
+          onSelectLocation: widget.onLocationChanged,
+          onOpenLogin: widget.onOpenLogin,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LiquidBackground(
@@ -151,10 +170,10 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Column(
               children: [
-                // Top Light Header
-                _buildLightHeader(),
+                // Top Light Swiggy-Style Location Header (Exact Image 1 layout)
+                _buildSwiggyHeader(),
 
-                // Search Bar directly on Home Screen
+                // Search Bar directly on Home Screen (Exact Image 1 layout)
                 _buildSearchBar(),
 
                 // Visual Shop Categories Icons Grid/Slider
@@ -251,74 +270,53 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildLightHeader() {
+  /// Exact Swiggy Instamart Top Location Header (Image 1 style)
+  Widget _buildSwiggyHeader() {
+    final etaText = "${widget.currentLocation.etaMinutes} Mins >";
+    final addressSubtitle = widget.currentLocation.name.isNotEmpty
+        ? "To ${widget.currentLocation.name}, ${widget.currentLocation.address}"
+        : "To ${widget.currentLocation.address}";
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: GlassCard(
         blur: 16,
-        opacity: 0.9,
+        opacity: 0.92,
         borderRadius: 22,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         borderColor: Colors.grey.shade200,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
               child: InkWell(
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (ctx) => LocationPickerSheet(
-                      currentLocation: widget.currentLocation,
-                      onSelectLocation: widget.onLocationChanged,
-                      userId: widget.userId,
-                    ),
-                  );
-                },
-                child: Row(
+                onTap: _openSelectLocationScreen,
+                borderRadius: BorderRadius.circular(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFF059669).withOpacity(0.12),
-                      ),
-                      child: const Icon(Icons.flash_on_rounded, color: Color(0xFF059669), size: 20),
+                    Row(
+                      children: [
+                        Text(
+                          etaText,
+                          style: const TextStyle(
+                            color: Color(0xFF111827),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "⚡ 10 MINS DELIVERY",
-                            style: TextStyle(
-                              color: Color(0xFF059669),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 10,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  widget.currentLocation.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Color(0xFF111827),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                              const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black54, size: 18),
-                            ],
-                          ),
-                        ],
+                    const SizedBox(height: 2),
+                    Text(
+                      addressSubtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -326,78 +324,73 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
 
-            // Sunday Mode Switch
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    _isSundayMode ? "Meat Live" : "Weekday",
-                    style: TextStyle(
-                      color: _isSundayMode ? const Color(0xFFD97706) : Colors.black87,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+            // Top Right Menu/Avatar Circle Button
+            GestureDetector(
+              onTap: _openSelectLocationScreen,
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey.shade300, width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 6,
                     ),
-                  ),
-                  Switch(
-                    value: _isSundayMode,
-                    activeThumbColor: const Color(0xFF059669),
-                    activeTrackColor: Colors.green.shade100,
-                    onChanged: (val) {
-                      setState(() => _isSundayMode = val);
-                      _loadProducts();
-                    },
-                  ),
-                ],
+                  ],
+                ),
+                child: const Icon(Icons.segment_rounded, color: Color(0xFF111827), size: 20),
               ),
-            )
+            ),
           ],
         ),
       ),
     );
   }
 
+  /// Exact Swiggy Instamart Search Bar (Image 1 style)
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: GlassCard(
-        blur: 12,
+        blur: 14,
         opacity: 0.95,
         borderRadius: 18,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
         borderColor: Colors.grey.shade300,
         child: Row(
           children: [
-            const Icon(Icons.search_rounded, color: Color(0xFF059669), size: 20),
-            const SizedBox(width: 8),
             Expanded(
               child: TextField(
                 controller: _searchController,
                 style: const TextStyle(color: Color(0xFF111827), fontSize: 13),
                 onChanged: (val) => setState(() => _searchQuery = val.trim()),
                 decoration: InputDecoration(
-                  hintText: "Search 'tomatoes', 'chicken', 'rohu fish'...",
-                  hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  hintText: "Search for 'Sugar Free Soda' or vegetables...",
+                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   border: InputBorder.none,
                 ),
               ),
             ),
-            if (_searchController.text.isNotEmpty)
-              IconButton(
-                icon: const Icon(Icons.clear_rounded, color: Colors.black54, size: 18),
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() => _searchQuery = "");
-                },
-              ),
+            const Icon(Icons.search_rounded, color: Colors.black54, size: 20),
+            const SizedBox(width: 10),
+            Container(
+              width: 1,
+              height: 18,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(width: 10),
+            IconButton(
+              icon: const Icon(Icons.receipt_long_outlined, color: Colors.black54, size: 20),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => setState(() => _selectedCategory = "favorites"),
+            ),
           ],
         ),
       ),
