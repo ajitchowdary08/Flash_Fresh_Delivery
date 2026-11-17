@@ -211,8 +211,45 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                                           ),
                                           OutlinedButton.icon(
                                             onPressed: () {
+                                              final cartItems = order.items.map((item) {
+                                                return CartItemModel(
+                                                  product: ProductModel(
+                                                    id: "reorder_${item.name.hashCode}",
+                                                    categoryId: "cat_veg",
+                                                    name: item.name,
+                                                    description: "",
+                                                    imageUrl: "",
+                                                    isSundayOnly: false,
+                                                    deliveryMode: "LIVE_DELIVERY",
+                                                    deliveryLabel: "10-15 Mins Quick Delivery",
+                                                    variants: [
+                                                      ProductVariantModel(
+                                                        id: "v_${item.variant.hashCode}",
+                                                        weightLabel: item.variant,
+                                                        mrp: item.unitPrice * 1.2,
+                                                        price: item.unitPrice,
+                                                        stockQty: 100,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  selectedVariant: ProductVariantModel(
+                                                    id: "v_${item.variant.hashCode}",
+                                                    weightLabel: item.variant,
+                                                    mrp: item.unitPrice * 1.2,
+                                                    price: item.unitPrice,
+                                                    stockQty: 100,
+                                                  ),
+                                                  quantity: item.quantity,
+                                                );
+                                              }).toList();
+
+                                              widget.onReorder(cartItems);
+
                                               ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text("Reordered items added to basket!")),
+                                                const SnackBar(
+                                                  content: Text("⚡ Items reordered & added to basket!"),
+                                                  backgroundColor: Color(0xFF059669),
+                                                ),
                                               );
                                             },
                                             icon: const Icon(Icons.replay_rounded, size: 14, color: Color(0xFF059669)),
