@@ -11,16 +11,14 @@ from app.api.v1.payments import router as payments_router
 from app.api.v1.rider import router as rider_router
 from app.api.v1.store import router as store_router
 
-# Initialize database schema and seeds
 init_db()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="Hyperlocal Quick-Commerce API (10KM Miyapur Radius) with Mock OTP, Mock Razorpay & Mock Google Maps",
+    description="Hyperlocal Quick-Commerce API (10KM Miyapur Radius) with Mock OTP, Cashfree PG & Mock Google Maps",
     version="1.0.0"
 )
 
-# Enable CORS for Flutter Web, Android Emulator, and iOS/Desktop
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,7 +27,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount API Routers
 app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(maps_router, prefix=settings.API_V1_STR)
 app.include_router(catalog_router, prefix=settings.API_V1_STR)
@@ -40,7 +37,6 @@ app.include_router(store_router, prefix=settings.API_V1_STR)
 
 import os
 
-# Serve Dark Store Dashboard HTML
 @app.get("/store", response_class=HTMLResponse)
 def get_store_dashboard():
     template_path = os.path.join(os.path.dirname(__file__), "templates", "store_dashboard.html")
@@ -58,6 +54,6 @@ def root():
             "lng": settings.STORE_LONGITUDE
         },
         "delivery_radius": f"{settings.MAX_DELIVERY_RADIUS_KM} KM",
-        "store_manager_dashboard": "http://127.0.0.1:8000/store",
-        "interactive_api_docs": "http://127.0.0.1:8000/docs"
+        "store_manager_dashboard": "https://flash-fresh.onrender.com/store",
+        "interactive_api_docs": "https://flash-fresh.onrender.com/docs"
     }

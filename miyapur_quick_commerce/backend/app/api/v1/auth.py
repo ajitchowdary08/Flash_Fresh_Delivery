@@ -168,7 +168,7 @@ def get_pay_later_statement(user_id: str, db: Session = Depends(get_db)):
 @router.post("/pay-later/settle-bill/{user_id}")
 def settle_pay_later_bill(user_id: str, db: Session = Depends(get_db)):
     """
-    Settles user's monthly credit line bill via UPI/Razorpay and resets running tab to ₹0.
+    Settles user's monthly credit line bill via UPI/Cashfree and resets running tab to ₹0.
     """
     user = db.query(User).filter(User.id == user_id).first()
     if user:

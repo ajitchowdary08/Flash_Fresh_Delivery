@@ -22,9 +22,9 @@ Run `start_backend.bat` or:
 cd backend
 venv\Scripts\python.exe run_backend.py
 ```
-* **API Server:** http://127.0.0.1:8000
-* **Store Manager Dashboard:** http://127.0.0.1:8000/store
-* **Swagger API Docs:** http://127.0.0.1:8000/docs
+* **API Server:** https://flash-fresh.onrender.com
+* **Store Manager Dashboard:** https://flash-fresh.onrender.com/store
+* **Swagger API Docs:** https://flash-fresh.onrender.com/docs
 
 ---
 
@@ -55,7 +55,7 @@ flutter run -d chrome
    * Add 1kg Tomatoes and 1kg Sunday Chicken to basket.
    * Tap **Proceed to Pay** ➔ Select **Google Pay (Mock UPI)** ➔ Order placed!
 
-2. **Weigh & Pack (Dark Store Dashboard at `http://127.0.0.1:8000/store`):**
+2. **Weigh & Pack (Dark Store Dashboard at `https://flash-fresh.onrender.com/store`):**
    * Watch the order appear live on the screen!
    * Click **Mark Packed & Tag Bag** to simulate digital scale verification and view the ESC/POS thermal bag slip.
 
@@ -129,23 +129,22 @@ This update closes the P0 / P1 gaps identified in the production-readiness revie
 - **OTP backdoor gated.** The `123456` test OTP is accepted only in `development` and only when `DEV_OTP_BYPASS=true`; it is always rejected in production.
 - **Login data-loss bug fixed.** `customer_app/lib/services/api_service.dart` `verifyOtp` no longer fabricates a `jwt_prod_token_signed` token + canonical user id when the backend is unreachable. It now returns an explicit failure so the UI shows "cannot connect" instead of creating a divergent local user that loses order history on re-login. A typed `ApiException` was added for genuine failures.
 - **Cashfree webhook is signed + idempotent.** `verify_cashfree_webhook_signature` implements the official `Base64(HMAC-SHA256(timestamp + raw_body, secret))` with a constant-time compare, rejects stale timestamps (replay protection), re-fetches the authoritative order status from Cashfree before flipping to `PAID`, and is a no-op for an already-PAID order.
-- **Razorpay webhook fails closed.** `verify_webhook_signature` previously returned `True` when no secret was configured; it now returns `False` so a forged webhook can never mark an order paid.
 - **Server-authoritative pricing & idempotency.** Order creation already re-prices every item from the DB and rejects duplicate `idempotency_key` submissions.
 
 ---
 
 ## 🧪 Verifying the geofence end-to-end
 
-With the backend running (`http://127.0.0.1:8000`):
+With the backend running (`https://flash-fresh.onrender.com`):
 
 ```bash
 # In zone (Kukatpally ~2.5 km from hub) -> is_serviceable: true
-curl -X POST http://127.0.0.1:8000/api/v1/maps/check-serviceability \
+curl -X POST https://flash-fresh.onrender.com/api/v1/maps/check-serviceability \
   -H "Content-Type: application/json" \
   -d '{"latitude": 17.4980, "longitude": 78.3910}'
 
 # Out of zone (Shamshabad ~29 km from hub) -> is_serviceable: false
-curl -X POST http://127.0.0.1:8000/api/v1/maps/check-serviceability \
+curl -X POST https://flash-fresh.onrender.com/api/v1/maps/check-serviceability \
   -H "Content-Type: application/json" \
   -d '{"latitude": 17.2401, "longitude": 78.4295}'
 ```

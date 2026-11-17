@@ -10,11 +10,10 @@ from app.core.config import settings
 
 class PaymentService:
     """
-    Production & Test Payment Gateway Integration.
-    - Supports Razorpay Test Mode (`rzp_test_...`) & Live Mode (`rzp_live_...`)
-    - Supports Cashfree Sandbox Mode (`TEST...`) & Production Mode
-    - Real HMAC-SHA256 Signature & Webhook Verification
-    - Simulated Sandbox Fallback Mode for keyless testing
+    Cashfree PG & UPI Payment Gateway Integration.
+    - Official Cashfree Hosted Checkout & Payment Sessions
+    - Real HMAC-SHA256 Cashfree Webhook Signature Verification
+    - Simulated Sandbox Fallback Mode for offline unit testing
     """
 
     @staticmethod
@@ -75,7 +74,6 @@ class PaymentService:
                     "currency": "INR"
                 }
             elif response.status_code == 400 and "order_already_exists" in response.text:
-                # If order was already created, retrieve its active payment_session_id
                 get_url = f"{cf_url}/{clean_order_id}"
                 get_res = requests.get(get_url, headers=headers, timeout=8)
                 if get_res.status_code == 200:
@@ -150,8 +148,6 @@ class PaymentService:
                 data = response.json()
                 order_status = (data.get("order_status") or "").upper()
 
-                # Cashfree returns a payment group with the worst payment's status,
-                # which is the authoritative source for FAILED/CANCELLED/User-dropped.
                 payment_group = (data.get("payment_group") or [{}])[0] if isinstance(data.get("payment_group"), list) else {}
                 pg_status = (payment_group.get("status") or "").upper()
                 pg_message = payment_group.get("error_details", {}).get("description") if isinstance(payment_group.get("error_details"), dict) else None
@@ -159,7 +155,6 @@ class PaymentService:
                 is_paid = order_status == "PAID"
                 is_failed = order_status in {"EXPIRED", "FAILED"} or pg_status in {"EXPIRED", "FAILED", "CANCELLED", "USER_DROPPED"}
 
-                # Human-readable reason surfaced to the customer
                 if is_paid:
                     reason = "Payment captured successfully."
                 elif is_failed:
@@ -191,45 +186,9 @@ class PaymentService:
     @staticmethod
     def create_order(amount_in_rupees: float, receipt_id: str) -> Dict[str, Any]:
         amount_in_paise = int(amount_in_rupees * 100)
-
-        # 1. Razorpay Gateway (Test Mode / Live Mode)
-        if settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET:
-            try:
-                is_test_mode = settings.RAZORPAY_KEY_ID.startswith("rzp_test_")
-                response = requests.post(
-                    "https://api.razorpay.com/v1/orders",
-                    auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET),
-                    json={
-                        "amount": amount_in_paise,
-                        "currency": "INR",
-                        "receipt": receipt_id,
-                        "payment_capture": 1,
-                        "notes": {
-                            "mode": "TEST_MODE" if is_test_mode else "LIVE_MODE",
-                            "hub": "Central Dark Store Hub",
-                            "sla": "10-Minute Fresh Delivery"
-                        }
-                    },
-                    timeout=8
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "success": True,
-                        "gateway": "RAZORPAY_TEST" if is_test_mode else "RAZORPAY_LIVE",
-                        "gateway_order_id": data["id"],
-                        "key_id": settings.RAZORPAY_KEY_ID,
-                        "amount_in_paise": amount_in_paise,
-                        "amount_in_rupees": amount_in_rupees,
-                        "currency": "INR",
-                        "receipt_id": receipt_id
-                    }
-            except Exception as e:
-                print(f"[Razorpay Error]: {e}")
-
-        # 2. Cashfree Gateway (Sandbox / Live Mode)
         cashfree_app_id = getattr(settings, "CASHFREE_APP_ID", "")
         cashfree_secret_key = getattr(settings, "CASHFREE_SECRET_KEY", "")
+
         if cashfree_app_id and cashfree_secret_key:
             try:
                 is_sandbox = cashfree_app_id.startswith("TEST") or "sandbox" in cashfree_app_id.lower()
@@ -268,63 +227,17 @@ class PaymentService:
             except Exception as e:
                 print(f"[Cashfree Error]: {e}")
 
-        # 3. Simulated Test Sandbox Mode (Keyless Instant Testing)
         mock_order_id = f"order_test_{uuid.uuid4().hex[:12]}"
         return {
             "success": True,
             "gateway": "TEST_SANDBOX_SIMULATED",
             "gateway_order_id": mock_order_id,
-            "key_id": settings.RAZORPAY_KEY_ID or "rzp_test_public_key_demo",
             "amount_in_paise": amount_in_paise,
             "amount_in_rupees": amount_in_rupees,
             "currency": "INR",
             "receipt_id": receipt_id,
-            "message": "Test Mode Active: Instant Simulated Verification"
+            "message": "Cashfree Sandbox Simulated Active"
         }
-
-    @staticmethod
-    def verify_payment_signature(
-        razorpay_order_id: str,
-        razorpay_payment_id: str,
-        razorpay_signature: str
-    ) -> bool:
-        """
-        Validates the authenticity of the payment response using HMAC-SHA256.
-        """
-        if not settings.RAZORPAY_KEY_SECRET:
-            return bool(razorpay_order_id and razorpay_payment_id)
-
-        try:
-            msg = f"{razorpay_order_id}|{razorpay_payment_id}"
-            generated_signature = hmac.new(
-                settings.RAZORPAY_KEY_SECRET.encode("utf-8"),
-                msg.encode("utf-8"),
-                hashlib.sha256
-            ).hexdigest()
-
-            return hmac.compare_digest(generated_signature, razorpay_signature)
-        except Exception:
-            return False
-
-    @staticmethod
-    def verify_webhook_signature(payload_body: bytes, signature_header: str) -> bool:
-        """
-        Validates Razorpay webhook requests using HMAC-SHA256. Fails CLOSED — if no
-        webhook secret is configured, the signature cannot be verified and the request
-        is rejected (never accepted) so a forged webhook can never mark an order paid.
-        """
-        if not settings.RAZORPAY_WEBHOOK_SECRET or not signature_header:
-            return False
-
-        try:
-            generated_signature = hmac.new(
-                settings.RAZORPAY_WEBHOOK_SECRET.encode("utf-8"),
-                payload_body,
-                hashlib.sha256
-            ).hexdigest()
-            return hmac.compare_digest(generated_signature, signature_header)
-        except Exception:
-            return False
 
     @staticmethod
     def verify_cashfree_webhook_signature(

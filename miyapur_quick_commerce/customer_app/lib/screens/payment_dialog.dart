@@ -124,9 +124,6 @@ class _PaymentDialogState extends State<PaymentDialog> {
 
       await ApiService.verifyPayment(
         orderId: widget.orderId,
-        razorpayOrderId: widget.gatewayOrderId,
-        razorpayPaymentId: "pay_${DateTime.now().millisecondsSinceEpoch}",
-        razorpaySignature: "sig_${DateTime.now().millisecondsSinceEpoch}",
         paymentMethod: _selectedMethod,
       );
 

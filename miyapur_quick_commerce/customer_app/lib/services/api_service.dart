@@ -916,10 +916,8 @@ class ApiService {
   // 15. Verify Payment
   static Future<Map<String, dynamic>> verifyPayment({
     required String orderId,
-    required String razorpayOrderId,
-    required String razorpayPaymentId,
-    required String razorpaySignature,
     required String paymentMethod,
+    String? transactionId,
   }) async {
     try {
       final response = await http
@@ -928,10 +926,8 @@ class ApiService {
             headers: {"Content-Type": "application/json"},
             body: jsonEncode({
               "order_id": orderId,
-              "razorpay_order_id": razorpayOrderId,
-              "razorpay_payment_id": razorpayPaymentId,
-              "razorpay_signature": razorpaySignature,
               "payment_method": paymentMethod,
+              "transaction_id": transactionId,
             }),
           )
           .timeout(const Duration(seconds: 15));

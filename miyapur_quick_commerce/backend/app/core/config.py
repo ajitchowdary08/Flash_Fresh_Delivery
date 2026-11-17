@@ -33,11 +33,6 @@ class Settings:
     # CORS allow-list (comma-separated origins). Never "*" in production.
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "*")
 
-    # Razorpay Payment Gateway (Production / Live Test)
-    RAZORPAY_KEY_ID: str = os.getenv("RAZORPAY_KEY_ID", "")
-    RAZORPAY_KEY_SECRET: str = os.getenv("RAZORPAY_KEY_SECRET", "")
-    RAZORPAY_WEBHOOK_SECRET: str = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
-
     # Cashfree Payment Gateway (Sandbox / Live)
     CASHFREE_APP_ID: str = os.getenv("CASHFREE_APP_ID", "TEST11361500854188d61c28cdc37e6d00516311")
     CASHFREE_SECRET_KEY: str = os.getenv("CASHFREE_SECRET_KEY", "cfsk_ma_test_80e826f86581fa4e7d6ea9af24c4da2a_ba79c20a")
@@ -91,8 +86,8 @@ class Settings:
             errors.append("Cashfree test credentials cannot be used in production. Set live CASHFREE_APP_ID / CASHFREE_SECRET_KEY.")
 
         # Webhook signature verification secret must be configured
-        if not self.CASHFREE_WEBHOOK_SECRET and not self.RAZORPAY_WEBHOOK_SECRET:
-            errors.append("At least one webhook secret (CASHFREE_WEBHOOK_SECRET or RAZORPAY_WEBHOOK_SECRET) must be set in production.")
+        if not self.CASHFREE_WEBHOOK_SECRET:
+            errors.append("CASHFREE_WEBHOOK_SECRET must be set in production.")
 
         # Google Maps API key must be set (geofence + places autocomplete rely on it)
         if not self.GOOGLE_MAPS_API_KEY:

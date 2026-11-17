@@ -78,7 +78,7 @@ bypassed by a client bug.
   drop-in closes; the backend re-fetches the order status from Cashfree and only
   then marks the order PAID. The client never decides success.
 
-### 8. Razorpay webhook fails closed (FIX)
+### 8. Cashfree payment gateway integration (FIX)
 - `verify_webhook_signature` previously returned `True` when no secret was configured
   (a forged webhook could mark an order paid). Now returns `False`.
 
@@ -122,7 +122,7 @@ bypassed by a client bug.
 - `backend/app/services/maps_service.py` — corrected hub, new `reverse_geocode` + `geocode_place`.
 - `backend/app/services/payment_service.py` — fail-closed webhooks, new Cashfree HMAC verifier.
 - `backend/app/api/v1/maps.py` — new `/reverse-geocode`, `/geocode`, `/hub` endpoints.
-- `backend/app/api/v1/payments.py` — new `/cashfree/verify`, `/cashfree/webhook` endpoints; Razorpay webhook fails closed.
+- `backend/app/api/v1/payments.py` — new `/cashfree/verify`, `/cashfree/webhook` endpoints.
 - `backend/app/api/v1/orders.py`, `auth.py`, `backend/app/models/models.py` — coordinate defaults updated.
 - `backend/tests/test_geofence.py` — updated for new coordinates + new reverse-geocode tests.
 
@@ -155,15 +155,15 @@ python -m pytest tests/ -q
 # Expected: 13 passed
 ```
 
-### Geofence via curl (backend running on :8000)
+### Geofence via curl (backend running on Render)
 ```bash
 # In zone (hub itself) -> is_serviceable: true, distance 0.0
-curl -X POST http://127.0.0.1:8000/api/v1/maps/check-serviceability \
+curl -X POST https://flash-fresh.onrender.com/api/v1/maps/check-serviceability \
   -H "Content-Type: application/json" \
   -d '{"latitude": 17.495101, "longitude": 78.367535}'
 
 # Out of zone (Shamshabad ~29 km) -> is_serviceable: false
-curl -X POST http://127.0.0.1:8000/api/v1/maps/check-serviceability \
+curl -X POST https://flash-fresh.onrender.com/api/v1/maps/check-serviceability \
   -H "Content-Type: application/json" \
   -d '{"latitude": 17.2401, "longitude": 78.4295}'
 ```

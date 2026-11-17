@@ -9,14 +9,12 @@ from app.models.models import Order, ProductVariant
 from app.services.payment_service import payment_service
 from app.core.config import settings
 
-router = APIRouter(prefix="/payments", tags=["Production Razorpay & UPI Payments"])
+router = APIRouter(prefix="/payments", tags=["Cashfree PG & UPI Payments"])
 
 class VerifyPaymentPayload(BaseModel):
     order_id: str
-    razorpay_order_id: str
-    razorpay_payment_id: str
-    razorpay_signature: Optional[str] = None
-    payment_method: str = "UPI"
+    payment_method: str = "COD"
+    transaction_id: Optional[str] = None
 
 class CashfreeVerifyPayload(BaseModel):
     order_id: str
@@ -24,26 +22,13 @@ class CashfreeVerifyPayload(BaseModel):
 @router.post("/verify")
 def verify_payment(req: VerifyPaymentPayload, db: Session = Depends(get_db)):
     """
-    Verifies Razorpay HMAC-SHA256 signature and advances order to PACKING / DISPATCH.
+    Confirms order payment status and advances order to PACKING / DISPATCH.
     """
     order = db.query(Order).filter(Order.id == req.order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Verify cryptographic signature if provided
-    is_valid = True
-    if req.razorpay_signature:
-        is_valid = payment_service.verify_payment_signature(
-            razorpay_order_id=req.razorpay_order_id,
-            razorpay_payment_id=req.razorpay_payment_id,
-            razorpay_signature=req.razorpay_signature
-        )
-
-    if not is_valid:
-        raise HTTPException(status_code=400, detail="Invalid payment signature. Transaction rejected.")
-
-    # Mark order as PAID
-    order.payment_status = "PAID"
+    order.payment_status = "PAID" if req.payment_method.upper() not in ["COD", "CASH_ON_DELIVERY"] else "PENDING_COD"
     order.payment_method = req.payment_method
     order.status = "PACKED"
     db.commit()
@@ -240,37 +225,6 @@ def cashfree_payment_return(order_id: str, db: Session = Depends(get_db)):
     </body>
     </html>
     """)
-
-@router.post("/webhook")
-async def razorpay_webhook(
-    request: Request,
-    x_razorpay_signature: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    """
-    Asynchronous Webhook listener for Razorpay payment captured events.
-    Fails CLOSED: an unsigned request with a configured secret is rejected.
-    """
-    body = await request.body()
-    if settings.RAZORPAY_WEBHOOK_SECRET:
-        if not x_razorpay_signature or not payment_service.verify_webhook_signature(body, x_razorpay_signature):
-            raise HTTPException(status_code=400, detail="Invalid webhook signature")
-
-    data = await request.json()
-    event = data.get("event")
-
-    if event == "payment.captured":
-        payment_entity = data.get("payload", {}).get("payment", {}).get("entity", {})
-        receipt = payment_entity.get("notes", {}).get("receipt")
-        if receipt:
-            order = db.query(Order).filter(Order.order_number == receipt).first()
-            if order and order.payment_status != "PAID":
-                order.payment_status = "PAID"
-                order.status = "PACKED"
-                db.commit()
-
-    return {"status": "ok"}
-
 
 @router.post("/cashfree/verify")
 def verify_cashfree_payment(
