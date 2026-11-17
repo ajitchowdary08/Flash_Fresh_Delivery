@@ -166,6 +166,7 @@ class _MainShellState extends State<MainShell> {
       _userPhone = phone;
       _userName = finalName;
       _isLoggedIn = true;
+      _currentIndex = 0; // Always land on Home after login
     });
   }
 

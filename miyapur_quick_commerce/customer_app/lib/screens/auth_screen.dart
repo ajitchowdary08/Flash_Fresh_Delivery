@@ -133,7 +133,7 @@ class _AuthScreenState extends State<AuthScreen> {
             backendUser['name'] ?? "Customer",
             backendUser['user_id'] ?? "usr_firebase_auto",
           );
-          Navigator.pop(context);
+          // No Navigator.pop() — IndexedStack handles switch automatically
         },
       );
       return;
@@ -196,7 +196,7 @@ class _AuthScreenState extends State<AuthScreen> {
             backendUser['name'] ?? "Customer",
             backendUser['user_id'] ?? userCred.user!.uid,
           );
-          Navigator.pop(context);
+          // No Navigator.pop() — IndexedStack handles switch automatically
           return;
         }
       } catch (e) {
@@ -237,8 +237,8 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _showSuccessVerificationAnimation(String userName, String phone, String userId) async {
-    final nav = Navigator.of(context);
-
+    // Show success dialog
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -297,18 +297,20 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
     );
 
-    LiquidToast.show(
-      context,
-      message: "🎉 Login successful! Welcome back, $userName",
-      icon: Icons.check_circle_rounded,
-      accentColor: const Color(0xFF059669),
-    );
-
     await Future.delayed(const Duration(milliseconds: 1200));
 
+    // Close the success dialog safely
     if (!mounted) return;
-    nav.pop(); // Close ONLY the success dialog
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
 
+    // Small gap so IndexedStack re-renders before onLoginSuccess rebuilds parent
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+
+    // onLoginSuccess flips _isLoggedIn in MainShell → IndexedStack switches to
+    // the logged-in screens automatically. No Navigator.pop() needed here.
     widget.onLoginSuccess(phone, userName, userId);
   }
 
