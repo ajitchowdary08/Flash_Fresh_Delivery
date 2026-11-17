@@ -45,8 +45,8 @@ class _TripScreenState extends State<TripScreen> {
     final pts = await RiderApiService.getRoutePoints(
       originLat: 17.495101,
       originLng: 78.367535,
-      destLat: 17.4985,
-      destLng: 78.3720,
+      destLat: widget.order.latitude ?? 17.4985,
+      destLng: widget.order.longitude ?? 78.3720,
     );
     if (!mounted) return;
     setState(() {

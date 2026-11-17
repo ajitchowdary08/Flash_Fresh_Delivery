@@ -29,6 +29,8 @@ class RiderOrderModel {
   final double payoutAmount;
   final String pickupHub;
   final String customerPhone;
+  final double? latitude;
+  final double? longitude;
   final List<RiderOrderItem> items;
 
   RiderOrderModel({
@@ -42,6 +44,8 @@ class RiderOrderModel {
     required this.payoutAmount,
     required this.pickupHub,
     required this.customerPhone,
+    this.latitude,
+    this.longitude,
     required this.items,
   });
 
@@ -58,6 +62,8 @@ class RiderOrderModel {
       payoutAmount: (json['payout_amount'] as num?)?.toDouble() ?? 45.0,
       pickupHub: json['pickup_hub'] ?? 'Flash Fresh Central Dark Store',
       customerPhone: json['customer_phone'] ?? '+91 98765 43210',
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
       items: rawItems.map((i) => RiderOrderItem.fromJson(i)).toList(),
     );
   }

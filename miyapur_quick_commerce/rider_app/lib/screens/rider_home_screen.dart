@@ -20,11 +20,33 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 
   List<RiderOrderModel> _availableOrders = [];
   bool _isLoading = true;
+  Timer? _radarTimer;
 
   @override
   void initState() {
     super.initState();
     _loadRiderData();
+    _startRadarTimer();
+  }
+
+  @override
+  void dispose() {
+    _radarTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startRadarTimer() {
+    _radarTimer?.cancel();
+    _radarTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
+      if (_isOnline && mounted) {
+        final orders = await RiderApiService.getAvailableOrders();
+        if (mounted) {
+          setState(() {
+            _availableOrders = orders;
+          });
+        }
+      }
+    });
   }
 
   void _loadRiderData() async {

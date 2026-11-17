@@ -73,6 +73,8 @@ def get_available_orders(db: Session = Depends(get_db)):
             "scheduled_slot": o.scheduled_slot,
             "pickup_hub": "Flash Fresh Central Dark Store (Metro Pillar 84)",
             "customer_phone": "+91 98765 43210",
+            "latitude": o.latitude,
+            "longitude": o.longitude,
             "rider_lat": o.rider_lat,
             "rider_lng": o.rider_lng,
             "items": [
