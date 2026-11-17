@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
+import uuid
 
 from app.database.db import get_db
-from app.models.models import Order, Product, ProductVariant
+from app.models.models import Order, Product, ProductVariant, Category
 from app.api.v1.orders import ws_manager
 
 router = APIRouter(prefix="/store", tags=["Dark Store Hub Operations (Miyapur)"])
@@ -265,4 +266,103 @@ def record_meat_weight(
         "turmeric_wash": req.turmeric_wash,
         "skinless": req.skinless,
         "message": f"Weight {req.actual_weight_g:.0f}g recorded & bag sealed for {order.order_number}!",
+    }
+
+
+# -----------------------------------------------------------------------------
+# Catalog Management (Admin: Add / Deactivate products)
+# -----------------------------------------------------------------------------
+
+class VariantInput(BaseModel):
+    weight_label: str
+    mrp: float
+    price: float
+    stock_qty: int = 0
+
+
+class AddProductRequest(BaseModel):
+    category_id: str
+    name: str
+    description: str = ""
+    image_url: str = ""
+    is_sunday_only: bool = False
+    variants: List[VariantInput]
+
+
+class DeleteProductRequest(BaseModel):
+    product_id: str
+
+
+@router.get("/catalog/all-categories")
+def get_all_categories(db: Session = Depends(get_db)):
+    """Returns all product categories for the Add Product form dropdown."""
+    categories = db.query(Category).order_by(Category.display_order).all()
+    return [{"id": c.id, "name": c.name, "slug": c.slug, "icon": c.icon} for c in categories]
+
+
+@router.post("/catalog/add-product")
+def add_product(req: AddProductRequest, db: Session = Depends(get_db)):
+    """Admin: Add a new product + at least one variant to the catalog."""
+    category = db.query(Category).filter(Category.id == req.category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    if not req.variants:
+        raise HTTPException(status_code=400, detail="At least one variant is required")
+
+    product = Product(
+        id=str(uuid.uuid4()),
+        category_id=req.category_id,
+        name=req.name.strip(),
+        description=req.description.strip(),
+        image_url=req.image_url.strip() if req.image_url else "",
+        is_sunday_only=req.is_sunday_only,
+        is_active=True,
+    )
+    db.add(product)
+    db.flush()
+
+    created_variants = []
+    for v in req.variants:
+        variant = ProductVariant(
+            id=str(uuid.uuid4()),
+            product_id=product.id,
+            weight_label=v.weight_label.strip(),
+            mrp=v.mrp,
+            price=v.price,
+            stock_qty=v.stock_qty,
+        )
+        db.add(variant)
+        created_variants.append(variant)
+
+    db.commit()
+
+    return {
+        "success": True,
+        "product_id": product.id,
+        "name": product.name,
+        "category": category.name,
+        "variants_added": len(created_variants),
+        "message": f"Added '{product.name}' to catalog with {len(created_variants)} variant(s). Visible in app immediately.",
+    }
+
+
+@router.post("/catalog/delete-product")
+def deactivate_product(req: DeleteProductRequest, db: Session = Depends(get_db)):
+    """Admin: Soft-deactivate a product (sets is_active=False)."""
+    product = db.query(Product).filter(Product.id == req.product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if not product.is_active:
+        return {"success": True, "product_id": product.id, "name": product.name,
+                "message": f"'{product.name}' was already deactivated."}
+
+    product.is_active = False
+    db.commit()
+
+    return {
+        "success": True,
+        "product_id": product.id,
+        "name": product.name,
+        "message": f"'{product.name}' deactivated and removed from customer catalog.",
     }

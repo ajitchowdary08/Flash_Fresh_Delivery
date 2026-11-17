@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Miyapur Dark Store Hub - Warehouse Operations & Fulfillment</title>
+  <title>Flash_Fresh_Delivery</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <style>
@@ -29,8 +29,8 @@
           <i class="fa-solid fa-bolt"></i>
         </div>
         <div>
-          <h1 class="font-extrabold text-lg leading-tight tracking-tight">Miyapur Central Dark Store Hub #01</h1>
-          <p class="text-xs text-emerald-300">Metro Pillar 84 • 10-Minute SLA • 10 KM Quick-Commerce Zone</p>
+          <h1 class="font-extrabold text-lg leading-tight tracking-tight">Flash_Fresh_Delivery</h1>
+          <p class="text-xs text-emerald-300">Quick-Commerce Zone</p>
         </div>
       </div>
       <div class="flex items-center space-x-3">
@@ -87,6 +87,10 @@
       </button>
       <button onclick="switchTab('inventory')" id="tabInventory" class="py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center">
         <i class="fa-solid fa-boxes-stacked mr-2 text-blue-600"></i> Daily Veg & Stock Intake
+      </button>
+    
+      <button onclick="switchTab('catalog')" id="tabCatalog" class="py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center">
+        <i class="fa-solid fa-store mr-2 text-purple-600"></i> Catalog Management
       </button>
     </div>
 
@@ -157,7 +161,101 @@
         </div>
       </div>
     </div>
-  </main>
+  
+    <!-- Tab 4: Catalog Management -->
+    <div id="catalogSection" class="hidden">
+      <!-- Add New Product Form -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+        <div class="p-4 bg-purple-50 border-b border-purple-200">
+          <h3 class="font-bold text-purple-800 flex items-center">
+            <i class="fa-solid fa-plus-circle mr-2"></i> Add New Product to Catalog
+          </h3>
+          <p class="text-xs text-purple-600 mt-0.5">New items appear in customer app immediately after saving.</p>
+        </div>
+        <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Category</label>
+            <select id="newProductCategory" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
+              <option value="">Loading categories...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Product Name</label>
+            <input id="newProductName" type="text" placeholder="e.g. Fresh Spinach (Palak)" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Description (optional)</label>
+            <input id="newProductDesc" type="text" placeholder="e.g. Farm fresh, hand-picked daily" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Image URL (optional)</label>
+            <input id="newProductImage" type="text" placeholder="https://..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+          </div>
+          <div class="flex items-center space-x-2 md:col-span-2">
+            <input id="newProductSundayOnly" type="checkbox" class="w-4 h-4 accent-amber-600"/>
+            <label class="text-sm text-slate-700 font-medium">Sunday Only Item (e.g. fresh meat/fish)</label>
+          </div>
+          <div class="md:col-span-2 border-t border-slate-200 pt-3">
+            <p class="text-xs font-bold text-slate-600 mb-2">Variant (size / weight / pack)</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label class="block text-xs text-slate-500 mb-1">Weight Label</label>
+                <input id="v1Label" type="text" placeholder="e.g. 250g" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"/>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-500 mb-1">MRP (&#8377;)</label>
+                <input id="v1Mrp" type="number" placeholder="30" min="0" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"/>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-500 mb-1">Selling Price (&#8377;)</label>
+                <input id="v1Price" type="number" placeholder="26" min="0" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"/>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-500 mb-1">Initial Stock (units)</label>
+                <input id="v1Stock" type="number" placeholder="50" min="0" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"/>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="px-5 pb-5">
+          <button onclick="addProduct()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-6 py-2.5 rounded-lg text-sm flex items-center space-x-2 transition-colors">
+            <i class="fa-solid fa-plus"></i>
+            <span>Add to Catalog</span>
+          </button>
+          <div id="addProductMsg" class="mt-3 text-sm font-medium hidden"></div>
+        </div>
+      </div>
+
+      <!-- Active Products List with Deactivate -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+          <div>
+            <h3 class="font-bold text-slate-800">Active Catalog Items</h3>
+            <p class="text-xs text-slate-500">Deactivating removes item from customer app immediately.</p>
+          </div>
+          <button onclick="loadCatalogTab()" class="text-xs bg-white border border-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-50 font-semibold">
+            <i class="fa-solid fa-rotate mr-1"></i> Refresh
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
+              <tr>
+                <th class="px-4 py-3">Product Name</th>
+                <th class="px-4 py-3">Category</th>
+                <th class="px-4 py-3">Variants</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody id="catalogTableBody" class="divide-y divide-slate-100">
+              <tr><td colspan="5" class="text-center py-8 text-slate-400">Loading catalog...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+</main>
 
   <!-- Modal 1: Thermal Receipt Slip (80mm) -->
   <div id="slipModal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center p-4 z-50">
@@ -319,10 +417,12 @@
       document.getElementById('packingSection').classList.add('hidden');
       document.getElementById('meatSection').classList.add('hidden');
       document.getElementById('inventorySection').classList.add('hidden');
+      document.getElementById('catalogSection').classList.add('hidden');
 
       document.getElementById('tabPacking').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
       document.getElementById('tabMeat').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
       document.getElementById('tabInventory').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
+      document.getElementById('tabCatalog').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
 
       if (tab === 'packing') {
         document.getElementById('packingSection').classList.remove('hidden');
@@ -330,10 +430,14 @@
       } else if (tab === 'meat') {
         document.getElementById('meatSection').classList.remove('hidden');
         document.getElementById('tabMeat').className = "py-3 px-6 font-bold border-b-2 border-amber-600 text-amber-800 text-sm flex items-center";
-      } else {
+      } else if (tab === 'inventory') {
         document.getElementById('inventorySection').classList.remove('hidden');
         document.getElementById('tabInventory').className = "py-3 px-6 font-bold border-b-2 border-blue-600 text-blue-800 text-sm flex items-center";
         loadInventory();
+      } else {
+        document.getElementById('catalogSection').classList.remove('hidden');
+        document.getElementById('tabCatalog').className = "py-3 px-6 font-bold border-b-2 border-purple-600 text-purple-800 text-sm flex items-center";
+        loadCatalogTab();
       }
     }
 
@@ -643,6 +747,124 @@
     // Auto refresh every 4 seconds
     setInterval(loadData, 4000);
     loadData();
+
+    // ─────────── Catalog Management ───────────
+    let catalogCategories = [];
+
+    async function loadCatalogTab() {
+      try {
+        // Load categories for dropdown
+        const catRes = await fetch(`${API_BASE}/store/catalog/all-categories`);
+        catalogCategories = await catRes.json();
+        const sel = document.getElementById('newProductCategory');
+        sel.innerHTML = catalogCategories.map(c =>
+          `<option value="${c.id}">${c.icon || ''} ${c.name}</option>`
+        ).join('');
+      } catch (e) { console.error('Failed to load categories', e); }
+
+      // Load active products
+      try {
+        const res = await fetch(`${API_BASE}/store/inventory`);
+        const items = await res.json();
+        const tbody = document.getElementById('catalogTableBody');
+        if (!items.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No active products found.</td></tr>';
+          return;
+        }
+        // Group by product_id
+        const products = {};
+        items.forEach(item => {
+          if (!products[item.product_id]) {
+            products[item.product_id] = { name: item.product_name, sunday: item.is_sunday_only, variants: [] };
+          }
+          products[item.product_id].variants.push(`${item.weight_label} @ ₹${item.price}`);
+        });
+        tbody.innerHTML = Object.entries(products).map(([pid, p]) => `
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3 font-semibold text-slate-800">${p.name}</td>
+            <td class="px-4 py-3 text-slate-500">${p.sunday ? '🥩 Sunday Meat' : '🥦 Daily Veg'}</td>
+            <td class="px-4 py-3 text-slate-500 text-xs">${p.variants.join(', ')}</td>
+            <td class="px-4 py-3"><span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">Active</span></td>
+            <td class="px-4 py-3">
+              <button onclick="deactivateProduct('${pid}', '${p.name.replace("'","\'")}' )"
+                class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+                🗑️ Deactivate
+              </button>
+            </td>
+          </tr>`).join('');
+      } catch (e) { console.error('Failed to load catalog', e); }
+    }
+
+    async function deactivateProduct(productId, name) {
+      if (!confirm(`Remove "${name}" from customer catalog?\n\nThis is a soft-delete — existing orders are preserved, but customers won't see this item anymore.`)) return;
+      try {
+        const res = await fetch(`${API_BASE}/store/catalog/delete-product`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id: productId })
+        });
+        const data = await res.json();
+        alert(data.message || 'Done!');
+        loadCatalogTab();
+      } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    async function addProduct() {
+      const categoryId = document.getElementById('newProductCategory').value;
+      const name = document.getElementById('newProductName').value.trim();
+      const desc = document.getElementById('newProductDesc').value.trim();
+      const imageUrl = document.getElementById('newProductImage').value.trim();
+      const sundayOnly = document.getElementById('newProductSundayOnly').checked;
+      const label = document.getElementById('v1Label').value.trim();
+      const mrp = parseFloat(document.getElementById('v1Mrp').value) || 0;
+      const price = parseFloat(document.getElementById('v1Price').value) || 0;
+      const stock = parseInt(document.getElementById('v1Stock').value) || 0;
+      const msgDiv = document.getElementById('addProductMsg');
+
+      if (!categoryId || !name || !label || !price) {
+        msgDiv.className = 'mt-3 text-sm font-medium text-red-600';
+        msgDiv.textContent = '❌ Please fill Category, Name, Weight Label, and Selling Price.';
+        msgDiv.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/store/catalog/add-product`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category_id: categoryId, name, description: desc,
+            image_url: imageUrl, is_sunday_only: sundayOnly,
+            variants: [{ weight_label: label, mrp, price, stock_qty: stock }]
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msgDiv.className = 'mt-3 text-sm font-medium text-green-700';
+          msgDiv.textContent = data.message || '✅ Product added!';
+          // Clear form
+          document.getElementById('newProductName').value = '';
+          document.getElementById('newProductDesc').value = '';
+          document.getElementById('newProductImage').value = '';
+          document.getElementById('newProductSundayOnly').checked = false;
+          document.getElementById('v1Label').value = '';
+          document.getElementById('v1Mrp').value = '';
+          document.getElementById('v1Price').value = '';
+          document.getElementById('v1Stock').value = '';
+          loadCatalogTab();
+        } else {
+          msgDiv.className = 'mt-3 text-sm font-medium text-red-600';
+          msgDiv.textContent = '❌ ' + (data.detail || 'Failed to add product.');
+        }
+        msgDiv.classList.remove('hidden');
+      } catch (e) {
+        msgDiv.className = 'mt-3 text-sm font-medium text-red-600';
+        msgDiv.textContent = '❌ Network error: ' + e.message;
+        msgDiv.classList.remove('hidden');
+      }
+    }
+    // ─────────── End Catalog Management ───────────
+
   </script>
 </body>
 </html>
