@@ -9,7 +9,7 @@ import '../utils/preferences.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/liquid_toast.dart';
 
-/// Miyapur Dark Store Hub coordinates (Matches backend configuration)
+/// Central Dark Store Hub coordinates (Matches backend configuration)
 const double _kHubLatitude = 17.495101;
 const double _kHubLongitude = 78.367535;
 const double _kMaxDeliveryRadiusKm = 10.0;

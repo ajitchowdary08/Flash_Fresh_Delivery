@@ -112,7 +112,7 @@ def get_current_store_manager(
                 detail="Dark store manager authorization required.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return {"sub": "mgr_miyapur_01", "phone": "9000011111", "role": "STORE_MANAGER"}
+        return {"sub": "mgr_central_01", "phone": "9000011111", "role": "STORE_MANAGER"}
 
     payload = _decode_token(credentials.credentials)
     if not payload or payload.get("role") not in ["STORE_MANAGER", "ADMIN"]:

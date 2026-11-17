@@ -193,7 +193,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
       final title = res["name"] ?? "Detected Location";
       String addr = (res["address"] ?? "").toString();
       if (addr.isEmpty || addr.startsWith("GPS (")) {
-        addr = "$title, Hafeezpet, Miyapur, Hyderabad, Telangana 500049";
+        addr = "$title, Hafeezpet, Hyderabad, Telangana 500049";
       }
 
       final detected = LocationModel(
@@ -643,8 +643,8 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
       markerId: const MarkerId("hub"),
       position: const LatLng(_kHubLatitude, _kHubLongitude),
       infoWindow: const InfoWindow(
-        title: "Miyapur Central Dark Store Hub",
-        snippet: "10 KM delivery radius",
+        title: "Flash Fresh Central Dark Store Hub",
+        snippet: "Metro Pillar 84",
       ),
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
     ));

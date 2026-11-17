@@ -230,7 +230,7 @@ class BikeMarkerIcon {
     canvas.drawCircle(const Offset(15, -1), 3.0, lightPaint);
   }
 
-  /// Dark Store Hub Marker ("🏬 Miyapur Central Hub")
+  /// Dark Store Hub Marker ("🏬 Flash Fresh Central Hub")
   static Future<BitmapDescriptor> createStoreHubMarker() async {
     const key = "hub_marker_pin";
     if (_cache.containsKey(key)) return _cache[key]!;
