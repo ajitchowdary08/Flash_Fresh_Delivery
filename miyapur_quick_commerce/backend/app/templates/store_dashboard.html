@@ -152,6 +152,7 @@
                 <th class="px-4 py-3">Price</th>
                 <th class="px-4 py-3">Stock Units</th>
                 <th class="px-4 py-3">Quick Adjust</th>
+                <th class="px-4 py-3">Edit & Save</th>
               </tr>
             </thead>
             <tbody id="inventoryTableBody" class="divide-y divide-slate-100">
@@ -637,6 +638,33 @@
       }
     }
 
+    async function saveProductDetail(productId, variantId) {
+      const name  = document.getElementById(`name_${variantId}`).value.trim();
+      const label = document.getElementById(`label_${variantId}`).value.trim();
+      const price = parseFloat(document.getElementById(`price_${variantId}`).value) || 0;
+      const stock = parseInt(document.getElementById(`stock_${variantId}`).value) || 0;
+      if (!name || !label || price <= 0) {
+        alert('Name, Weight Label, and Price are required.');
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/store/inventory/update-product-detail`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id: productId, variant_id: variantId,
+                                 product_name: name, weight_label: label, price, stock_qty: stock })
+        });
+        const data = await res.json();
+        if (data.success) {
+          // Flash the row green briefly
+          const row = document.getElementById(`inv-row-${variantId}`);
+          if (row) { row.style.background = '#d1fae5'; setTimeout(() => row.style.background = '', 1000); }
+        } else {
+          alert('Update failed: ' + (data.detail || 'Unknown error'));
+        }
+      } catch (e) { alert('Network error: ' + e.message); }
+    }
+
     async function assignRider(orderId) {
       const select = document.getElementById(`riderSelect_${orderId}`);
       const riderId = select.value;
@@ -698,23 +726,43 @@
         const items = await res.json();
         const tbody = document.getElementById('inventoryTableBody');
         tbody.innerHTML = items.map(i => `
-          <tr class="hover:bg-slate-50">
+          <tr class="hover:bg-slate-50" id="inv-row-${i.variant_id}">
             <td class="px-4 py-3">
               <span class="px-2 py-0.5 rounded text-[10px] font-bold ${i.is_sunday_only ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
                 ${i.is_sunday_only ? '🍗 SUNDAY MEAT' : '🥬 DAILY VEG'}
               </span>
             </td>
-            <td class="px-4 py-3 font-bold text-slate-800">${i.product_name}</td>
-            <td class="px-4 py-3">${i.weight_label}</td>
-            <td class="px-4 py-3 font-semibold text-slate-900">₹${i.price}</td>
-            <td class="px-4 py-3">
-              <span class="font-bold text-sm ${i.stock_qty < 15 ? 'text-red-600' : 'text-emerald-700'}">${i.stock_qty} units</span>
+            <td class="px-4 py-2">
+              <input type="text" id="name_${i.variant_id}" value="${i.product_name.replace(/"/g,'&quot;')}"
+                class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-slate-50"/>
             </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center space-x-2">
-                <input type="number" id="stock_${i.variant_id}" value="${i.stock_qty}" class="w-16 border rounded px-2 py-1 text-xs">
-                <button onclick="updateStock('${i.variant_id}')" class="bg-emerald-700 hover:bg-emerald-600 text-white px-2.5 py-1 rounded text-xs font-bold">
-                  Save
+            <td class="px-4 py-2">
+              <input type="text" id="label_${i.variant_id}" value="${i.weight_label.replace(/"/g,'&quot;')}"
+                class="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-slate-50"/>
+            </td>
+            <td class="px-4 py-2">
+              <div class="flex items-center space-x-1">
+                <span class="text-slate-500 text-sm">₹</span>
+                <input type="number" id="price_${i.variant_id}" value="${i.price}" min="0" step="0.5"
+                  class="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-slate-50"/>
+              </div>
+            </td>
+            <td class="px-4 py-2">
+              <div class="flex items-center space-x-1">
+                <input type="number" id="stock_${i.variant_id}" value="${i.stock_qty}" min="0"
+                  class="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-bold ${i.stock_qty < 15 ? 'text-red-600' : 'text-emerald-700'} focus:outline-none focus:ring-2 focus:ring-purple-400 bg-slate-50"/>
+                <span class="text-xs text-slate-400">units</span>
+              </div>
+            </td>
+            <td class="px-4 py-2">
+              <div class="flex items-center space-x-1">
+                <button onclick="updateStock('${i.variant_id}')" title="Update stock only"
+                  class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                  📦 Stock
+                </button>
+                <button onclick="saveProductDetail('${i.product_id}','${i.variant_id}')" title="Save name, weight & price"
+                  class="bg-purple-600 hover:bg-purple-500 text-white px-2 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                  ✏️ Save All
                 </button>
               </div>
             </td>

@@ -366,3 +366,45 @@ def deactivate_product(req: DeleteProductRequest, db: Session = Depends(get_db))
         "name": product.name,
         "message": f"'{product.name}' deactivated and removed from customer catalog.",
     }
+
+
+# --- Inline Edit: update product name, weight label, and price ---------------
+
+class UpdateProductDetailRequest(BaseModel):
+    product_id: str
+    variant_id: str
+    product_name: str
+    weight_label: str
+    price: float
+    stock_qty: int
+
+
+@router.post("/inventory/update-product-detail")
+def update_product_detail(req: UpdateProductDetailRequest, db: Session = Depends(get_db)):
+    """
+    Admin inline edit: update product name, weight label, selling price, and stock qty.
+    All four fields are saved in a single call from the inventory table row.
+    """
+    product = db.query(Product).filter(Product.id == req.product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    variant = db.query(ProductVariant).filter(
+        ProductVariant.id == req.variant_id,
+        ProductVariant.product_id == req.product_id
+    ).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+
+    product.name = req.product_name.strip()
+    variant.weight_label = req.weight_label.strip()
+    variant.price = req.price
+    variant.stock_qty = req.stock_qty
+    db.commit()
+
+    return {
+        "success": True,
+        "product_id": product.id,
+        "variant_id": variant.id,
+        "message": f"'{product.name}' updated successfully.",
+    }
