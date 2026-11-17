@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database with PostGIS Extension (Sub-2ms Geofencing)
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: miyapur_postgis_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-miyapur_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_quick_password_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-miyapur_quick_commerce}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_postgis.sql:/docker-entrypoint-initdb.d/init_postgis.sql
+    restart: always
+
+  # 2. Redis In-Memory Cache (Inventory Locks & Real-time Live Tracking)
+  redis:
+    image: redis:7-alpine
+    container_name: miyapur_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  # 3. FastAPI Modular Monolith Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: miyapur_fastapi_backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-miyapur_admin}:${POSTGRES_PASSWORD:-secure_quick_password_2026}@db:5432/${POSTGRES_DB:-miyapur_quick_commerce}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-prod_super_secret_jwt_key_miyapur_2026_quick_commerce_xyz987}
+      STORE_LATITUDE: 17.495101
+      STORE_LONGITUDE: 78.367535
+      MAX_DELIVERY_RADIUS_KM: 10.0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    restart: always
+
+volumes:
+  postgres_data:

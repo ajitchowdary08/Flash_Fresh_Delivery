@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Miyapur Dark Store Hub - Warehouse Operations & Fulfillment</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @media print {
+      body * { visibility: hidden; }
+      #printableSlip, #printableSlip * { visibility: visible; }
+      #printableSlip { position: absolute; left: 0; top: 0; width: 80mm; }
+    }
+    .barcode {
+      font-family: 'Courier New', monospace;
+      letter-spacing: 5px;
+      font-size: 20px;
+      font-weight: 900;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800">
+  <!-- Top Navigation -->
+  <header class="bg-emerald-900 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <div class="bg-amber-400 text-emerald-950 p-2.5 rounded-xl font-black text-xl shadow">
+          <i class="fa-solid fa-bolt"></i>
+        </div>
+        <div>
+          <h1 class="font-extrabold text-lg leading-tight tracking-tight">Miyapur Central Dark Store Hub #01</h1>
+          <p class="text-xs text-emerald-300">Metro Pillar 84 • 10-Minute SLA • 10 KM Quick-Commerce Zone</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <button id="soundBtn" onclick="toggleSound()" class="bg-emerald-800 hover:bg-emerald-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center transition border border-emerald-700">
+          <i id="soundIcon" class="fa-solid fa-volume-high mr-1.5 text-amber-400"></i> Sound Alerts: ON
+        </button>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-800 text-emerald-100 border border-emerald-700">
+          <span class="w-2 h-2 mr-2 bg-emerald-400 rounded-full animate-ping"></span> Live Warehouse Online
+        </span>
+        <button onclick="loadData()" class="bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded-lg text-sm transition">
+          <i class="fa-solid fa-rotate-right mr-1"></i> Refresh
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    <!-- KPI Overview Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">To Pack</div>
+        <div id="kpiToPack" class="text-3xl font-black text-amber-600 mt-1">0</div>
+        <div class="text-[11px] text-slate-400 mt-1 flex items-center"><i class="fa-solid fa-box-open mr-1"></i> Needs weighing</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ready for Dispatch</div>
+        <div id="kpiPacked" class="text-3xl font-black text-blue-600 mt-1">0</div>
+        <div class="text-[11px] text-slate-400 mt-1 flex items-center"><i class="fa-solid fa-bag-shopping mr-1"></i> Awaiting Rider</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">In Transit</div>
+        <div id="kpiTransit" class="text-3xl font-black text-purple-600 mt-1">0</div>
+        <div class="text-[11px] text-slate-400 mt-1 flex items-center"><i class="fa-solid fa-motorcycle mr-1"></i> Out for delivery</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Delivered Today</div>
+        <div id="kpiDelivered" class="text-3xl font-black text-emerald-600 mt-1">0</div>
+        <div class="text-[11px] text-slate-400 mt-1 flex items-center"><i class="fa-solid fa-circle-check mr-1"></i> 100% on time</div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 col-span-2 md:col-span-1">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Today's Revenue</div>
+        <div id="kpiRevenue" class="text-3xl font-black text-slate-800 mt-1">₹0</div>
+        <div class="text-[11px] text-slate-400 mt-1 flex items-center"><i class="fa-solid fa-indian-rupee-sign mr-1"></i> Gross Miyapur sales</div>
+      </div>
+    </div>
+
+    <!-- Tab navigation -->
+    <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl px-4 pt-2 shadow-sm">
+      <button onclick="switchTab('packing')" id="tabPacking" class="py-3 px-6 font-bold border-b-2 border-emerald-600 text-emerald-800 text-sm flex items-center">
+        <i class="fa-solid fa-dolly mr-2 text-emerald-600"></i> Packing & Dispatch Station
+      </button>
+      <button onclick="switchTab('meat')" id="tabMeat" class="py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center">
+        <i class="fa-solid fa-drumstick-bite mr-2 text-amber-600"></i> Sunday Meat Weighing Scale
+      </button>
+      <button onclick="switchTab('inventory')" id="tabInventory" class="py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center">
+        <i class="fa-solid fa-boxes-stacked mr-2 text-blue-600"></i> Daily Veg & Stock Intake
+      </button>
+    </div>
+
+    <!-- Tab 1: Packing & Dispatch Station -->
+    <div id="packingSection" class="space-y-4">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-lg font-black text-slate-800 flex items-center">
+          <span class="w-3 h-3 bg-amber-500 rounded-full inline-block mr-2 animate-pulse"></span>
+          Live Packing & Fleet Dispatch Queue
+        </h2>
+        <div class="text-xs text-slate-500 flex items-center space-x-2">
+          <span>Active Riders on Standby: <strong class="text-emerald-700 font-bold" id="activeRidersCount">3 Riders</strong></span>
+          <span>• Auto-syncing</span>
+        </div>
+      </div>
+      <div id="ordersContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Order Cards injected via JS -->
+      </div>
+    </div>
+
+    <!-- Tab 2: Sunday Meat Weighing Station -->
+    <div id="meatSection" class="hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-center space-x-3 mb-4">
+          <div class="bg-amber-100 text-amber-800 p-3 rounded-xl text-xl">
+            <i class="fa-solid fa-scale-balanced"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-800 text-base">Digital Meat Weighing & Cutting Precision Station</h3>
+            <p class="text-xs text-slate-500">Weigh Sunday tender chicken, country chicken (natu kodi), mutton & rohu fish. Apply customer cut preferences.</p>
+          </div>
+        </div>
+
+        <div id="meatOrdersContainer" class="space-y-4">
+          <!-- Meat Orders injected via JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Inventory & Intake -->
+    <div id="inventorySection" class="hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+          <div>
+            <h3 class="font-bold text-slate-800">Miyapur Dark Store Stock Inventory</h3>
+            <p class="text-xs text-slate-500">Update stock intake when fresh morning farm trucks or Sunday meat supplies arrive.</p>
+          </div>
+          <button onclick="loadInventory()" class="text-xs bg-white border border-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-50 font-semibold">
+            <i class="fa-solid fa-rotate mr-1"></i> Refresh Stock
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600">
+            <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
+              <tr>
+                <th class="px-4 py-3">Category / Tag</th>
+                <th class="px-4 py-3">Product Name</th>
+                <th class="px-4 py-3">Unit / Weight</th>
+                <th class="px-4 py-3">Price</th>
+                <th class="px-4 py-3">Stock Units</th>
+                <th class="px-4 py-3">Quick Adjust</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTableBody" class="divide-y divide-slate-100">
+              <!-- Injected via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal 1: Thermal Receipt Slip (80mm) -->
+  <div id="slipModal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
+      <button onclick="closeSlipModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div id="printableSlip" class="text-center font-mono text-xs border-2 border-dashed border-slate-400 p-4 rounded-lg bg-white">
+        <div class="font-black text-base tracking-wider">⚡ FLASH FRESH</div>
+        <div class="text-[10px] text-slate-600">Miyapur Central Dark Store • Hub #01</div>
+        <div class="text-[9px] text-slate-500">Beside Metro Pillar 84, Miyapur, Hyderabad</div>
+        <div class="border-b border-dashed border-slate-400 my-2"></div>
+        
+        <div class="flex justify-between text-left font-bold text-sm">
+          <span>ORDER:</span>
+          <span id="slipOrderNumber">MYP-XXXX</span>
+        </div>
+        <div class="text-left mt-1 text-[11px] text-slate-700" id="slipAddress">Miyapur, Hyderabad</div>
+        <div class="text-left text-[10px] text-slate-500" id="slipDistance">Distance: 1.2 KM</div>
+        <div class="border-b border-dashed border-slate-400 my-2"></div>
+        
+        <div id="slipItemsList" class="text-left space-y-1 text-[11px]">
+          <!-- Items -->
+        </div>
+        <div class="border-b border-dashed border-slate-400 my-2"></div>
+
+        <div class="p-2 border border-slate-800 rounded bg-slate-50 my-2">
+          <div class="text-[10px] font-bold text-slate-500">CUSTOMER VERIFICATION PIN:</div>
+          <div class="text-xl font-black text-emerald-800 tracking-widest" id="slipOtp">••••</div>
+        </div>
+
+        <div class="barcode mt-2">||| | |||| | ||| |||| |</div>
+        <div class="text-[9px] text-slate-400 mt-1">Guaranteed 10-Minute Hyperlocal Delivery</div>
+      </div>
+
+      <div class="mt-5 flex space-x-2">
+        <button onclick="window.print()" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl text-xs font-bold flex items-center justify-center shadow">
+          <i class="fa-solid fa-print mr-2"></i> Print Thermal Slip
+        </button>
+        <button onclick="closeSlipModal()" class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-bold">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Meat Weighing & Cutting Modal -->
+  <div id="weighModal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+      <button onclick="closeWeighModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="flex items-center space-x-3 mb-4">
+        <div class="bg-amber-100 text-amber-800 p-2.5 rounded-xl">
+          <i class="fa-solid fa-scale-unbalanced text-lg"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Weigh Meat & Custom Cut</h3>
+          <p class="text-xs text-slate-500" id="weighOrderNumber">Order #MYP-XXXX</p>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="bg-slate-900 text-emerald-400 p-4 rounded-xl text-center font-mono">
+          <div class="text-[10px] uppercase tracking-widest text-slate-400 font-sans">Digital Weight Scale Output</div>
+          <div class="text-4xl font-black mt-1" id="scaleDisplay">520 g</div>
+          <div class="text-xs text-emerald-300 mt-1">Net Weight (Tare Calibrated)</div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Enter Weighed Weight (Grams):</label>
+          <input type="number" id="actualWeightInput" value="520" class="w-full border-2 border-slate-300 rounded-xl px-3 py-2 font-bold text-base text-slate-900 focus:border-emerald-600 outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Select Cut Style:</label>
+          <select id="cutStyleSelect" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-800 font-semibold">
+            <option value="Curry Cut (Medium with bone)">Curry Cut (Medium with bone)</option>
+            <option value="Biryani Big Cut (Juicy pieces)">Biryani Big Cut (Juicy pieces)</option>
+            <option value="Boneless Breast Cubes">Boneless Breast Cubes</option>
+            <option value="Fine Mince Keema">Fine Mince Keema</option>
+            <option value="Soup Bones & Head Cuts">Soup Bones & Head Cuts</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <label class="flex items-center space-x-2 border border-slate-200 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50">
+            <input type="checkbox" id="turmericWashCheck" checked class="w-4 h-4 text-emerald-600 rounded">
+            <span class="text-xs font-bold text-slate-700">Turmeric Wash</span>
+          </label>
+          <label class="flex items-center space-x-2 border border-slate-200 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50">
+            <input type="checkbox" id="skinlessCheck" checked class="w-4 h-4 text-emerald-600 rounded">
+            <span class="text-xs font-bold text-slate-700">Skinless Cleaned</span>
+          </label>
+        </div>
+
+        <button onclick="submitMeatWeight()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm transition shadow flex items-center justify-center">
+          <i class="fa-solid fa-check mr-2"></i> Save Weight & Seal Temperature-Controlled Bag
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "/api/v1";
+    let activeRiders = [];
+    let previousToPackCount = -1;
+    let soundEnabled = true;
+    let currentWeighOrderId = null;
+
+    // Web Audio API Chime Synthesizer (Ding-Dong order chime)
+    function playOrderChime() {
+      if (!soundEnabled) return;
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+
+        // Note 1: 587 Hz (D5)
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.frequency.setValueAtTime(587.33, now);
+        gain1.gain.setValueAtTime(0.3, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.4);
+
+        // Note 2: 880 Hz (A5)
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.frequency.setValueAtTime(880.00, now + 0.15);
+        gain2.gain.setValueAtTime(0.4, now + 0.15);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(now + 0.15);
+        osc2.stop(now + 0.6);
+      } catch (e) {
+        console.log("Audio alert not available", e);
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById('soundBtn');
+      const icon = document.getElementById('soundIcon');
+      if (soundEnabled) {
+        btn.innerHTML = `<i id="soundIcon" class="fa-solid fa-volume-high mr-1.5 text-amber-400"></i> Sound Alerts: ON`;
+        playOrderChime();
+      } else {
+        btn.innerHTML = `<i id="soundIcon" class="fa-solid fa-volume-xmark mr-1.5 text-slate-400"></i> Sound Alerts: OFF`;
+      }
+    }
+
+    function switchTab(tab) {
+      document.getElementById('packingSection').classList.add('hidden');
+      document.getElementById('meatSection').classList.add('hidden');
+      document.getElementById('inventorySection').classList.add('hidden');
+
+      document.getElementById('tabPacking').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
+      document.getElementById('tabMeat').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
+      document.getElementById('tabInventory').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
+
+      if (tab === 'packing') {
+        document.getElementById('packingSection').classList.remove('hidden');
+        document.getElementById('tabPacking').className = "py-3 px-6 font-bold border-b-2 border-emerald-600 text-emerald-800 text-sm flex items-center";
+      } else if (tab === 'meat') {
+        document.getElementById('meatSection').classList.remove('hidden');
+        document.getElementById('tabMeat').className = "py-3 px-6 font-bold border-b-2 border-amber-600 text-amber-800 text-sm flex items-center";
+      } else {
+        document.getElementById('inventorySection').classList.remove('hidden');
+        document.getElementById('tabInventory').className = "py-3 px-6 font-bold border-b-2 border-blue-600 text-blue-800 text-sm flex items-center";
+        loadInventory();
+      }
+    }
+
+    async function fetchActiveRiders() {
+      try {
+        const res = await fetch(`${API_BASE}/store/riders/active`);
+        activeRiders = await res.json();
+        document.getElementById('activeRidersCount').innerText = `${activeRiders.length} Riders Active`;
+      } catch (e) {
+        activeRiders = [
+          { id: "rdr_ravi_01", name: "Ravi Kumar", vehicle: "Hero Electric" },
+          { id: "rdr_suresh_02", name: "Suresh Goud", vehicle: "Ather 450X" },
+          { id: "rdr_naresh_03", name: "Naresh K", vehicle: "Ola S1 Pro" },
+        ];
+      }
+    }
+
+    async function loadData() {
+      try {
+        await fetchActiveRiders();
+
+        // 1. Summary
+        const sumRes = await fetch(`${API_BASE}/store/dashboard-summary`);
+        const sum = await sumRes.json();
+        
+        // Chime if new orders arrived
+        if (previousToPackCount !== -1 && sum.orders_to_pack > previousToPackCount) {
+          playOrderChime();
+        }
+        previousToPackCount = sum.orders_to_pack;
+
+        document.getElementById('kpiToPack').innerText = sum.orders_to_pack;
+        document.getElementById('kpiPacked').innerText = sum.orders_ready_for_pickup;
+        document.getElementById('kpiTransit').innerText = sum.orders_in_transit;
+        document.getElementById('kpiDelivered').innerText = sum.orders_delivered_today;
+        document.getElementById('kpiRevenue').innerText = `₹${sum.total_revenue_today.toFixed(0)}`;
+
+        // 2. Packing Queue
+        const queueRes = await fetch(`${API_BASE}/store/packing-queue`);
+        const queue = await queueRes.json();
+        renderPackingQueue(queue);
+        renderMeatQueue(queue);
+      } catch (e) {
+        console.error("Failed to load dashboard data", e);
+      }
+    }
+
+    function renderPackingQueue(orders) {
+      const container = document.getElementById('ordersContainer');
+      if (orders.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full bg-white p-8 rounded-xl text-center border border-slate-200">
+            <i class="fa-solid fa-box-open text-4xl text-slate-300 mb-2"></i>
+            <h4 class="font-bold text-slate-700">No Orders in Packing Queue</h4>
+            <p class="text-xs text-slate-400 mt-1">Place an order from the Customer App to see it appear here live.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = orders.map(o => `
+        <div class="bg-white rounded-xl shadow-sm border ${o.status === 'PLACED' ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-200'} p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <span class="text-xs font-bold text-slate-500">ORDER</span>
+                <h4 class="font-black text-slate-800 text-base leading-tight">${o.order_number}</h4>
+              </div>
+              <span class="px-2.5 py-0.5 rounded text-[11px] font-bold ${o.status === 'PLACED' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">
+                ${o.status === 'PLACED' ? '⏳ WEIGH & PACK' : '✓ PACKED & READY'}
+              </span>
+            </div>
+
+            <div class="text-xs text-slate-500 mb-3 flex items-center">
+              <i class="fa-solid fa-location-dot text-emerald-600 mr-1.5"></i>
+              <span class="truncate font-semibold text-slate-700">${o.delivery_address}</span>
+            </div>
+
+            <div class="bg-slate-50 rounded-lg p-2.5 mb-3 text-xs space-y-1.5 border border-slate-100">
+              <div class="font-bold text-slate-600 mb-1 flex justify-between">
+                <span>Items Checklist:</span>
+                <span>${o.items.length} Items</span>
+              </div>
+              ${o.items.map(i => `
+                <div class="flex justify-between items-center text-slate-700">
+                  <span class="flex items-center">
+                    <i class="fa-regular fa-square-check text-emerald-600 mr-1.5"></i>
+                    ${i.name} (${i.variant})
+                  </span>
+                  <span class="font-bold">x${i.quantity}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="space-y-2 pt-2 border-t border-slate-100">
+            ${o.status === 'PLACED' ? `
+              <div class="grid grid-cols-2 gap-2">
+                <button onclick="openWeighModal('${o.order_id}', '${o.order_number}')" class="bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold py-2 rounded-lg text-xs transition flex items-center justify-center">
+                  <i class="fa-solid fa-scale-balanced mr-1"></i> Weigh Scale
+                </button>
+                <button onclick="markPacked('${o.order_id}')" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 rounded-lg text-xs transition flex items-center justify-center">
+                  <i class="fa-solid fa-check-double mr-1"></i> Mark Packed
+                </button>
+              </div>
+            ` : `
+              <div class="space-y-2">
+                <div class="flex items-center space-x-2">
+                  <select id="riderSelect_${o.order_id}" class="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-700">
+                    ${activeRiders.map(r => `<option value="${r.id}">${r.name} (${r.vehicle})</option>`).join('')}
+                  </select>
+                  <button onclick="assignRider('${o.order_id}')" class="bg-purple-700 hover:bg-purple-600 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition shadow flex items-center">
+                    <i class="fa-solid fa-motorcycle mr-1"></i> Dispatch
+                  </button>
+                </div>
+                <button onclick="showSlip('${o.order_number}', '${o.delivery_address}', ${JSON.stringify(o.items).replace(/"/g, '&quot;')}, '${o.delivery_otp || '4921'}')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-1.5 rounded-lg text-xs transition flex items-center justify-center">
+                  <i class="fa-solid fa-print mr-1.5"></i> Print Bag Slip (PIN: ${o.delivery_otp || '4921'})
+                </button>
+              </div>
+            `}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderMeatQueue(orders) {
+      const container = document.getElementById('meatOrdersContainer');
+      const meatOrders = orders.filter(o => o.is_sunday_meat_order || o.items.some(i => i.name.toLowerCase().includes('chicken') || i.name.toLowerCase().includes('meat') || i.name.toLowerCase().includes('fish')));
+
+      if (meatOrders.length === 0) {
+        container.innerHTML = `
+          <div class="bg-slate-50 p-6 rounded-xl text-center border border-slate-200">
+            <p class="text-xs text-slate-500 font-semibold">No meat weighing tasks in queue right now.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = meatOrders.map(o => `
+        <div class="border border-amber-200 bg-amber-50/50 rounded-xl p-4 flex justify-between items-center">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-slate-800 text-sm">${o.order_number}</span>
+              <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">SUNDAY MEAT PREPARATION</span>
+            </div>
+            <div class="text-xs text-slate-600 mt-1">
+              ${o.items.map(i => `${i.name} (${i.variant}) x${i.quantity}`).join(', ')}
+            </div>
+          </div>
+          <button onclick="openWeighModal('${o.order_id}', '${o.order_number}')" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded-xl text-xs shadow flex items-center">
+            <i class="fa-solid fa-scale-balanced mr-1.5"></i> Open Weigh Station
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function openWeighModal(orderId, orderNum) {
+      currentWeighOrderId = orderId;
+      document.getElementById('weighOrderNumber').innerText = `Order #${orderNum}`;
+      document.getElementById('actualWeightInput').value = "520";
+      document.getElementById('scaleDisplay').innerText = "520 g";
+      document.getElementById('weighModal').classList.remove('hidden');
+    }
+
+    function closeWeighModal() {
+      document.getElementById('weighModal').classList.add('hidden');
+    }
+
+    document.getElementById('actualWeightInput').addEventListener('input', function(e) {
+      document.getElementById('scaleDisplay').innerText = `${e.target.value || 0} g`;
+    });
+
+    async function submitMeatWeight() {
+      if (!currentWeighOrderId) return;
+      const weight = parseFloat(document.getElementById('actualWeightInput').value) || 500;
+      const cut = document.getElementById('cutStyleSelect').value;
+      const turmeric = document.getElementById('turmericWashCheck').checked;
+      const skinless = document.getElementById('skinlessCheck').checked;
+
+      try {
+        const res = await fetch(`${API_BASE}/store/orders/${currentWeighOrderId}/record-weight`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            actual_weight_g: weight,
+            cut_type: cut,
+            turmeric_wash: turmeric,
+            skinless: skinless
+          })
+        });
+        const data = await res.json();
+        closeWeighModal();
+        alert(data.message || "Weight & Custom Cut recorded!");
+        loadData();
+      } catch (e) {
+        alert("Failed to record weight");
+      }
+    }
+
+    async function assignRider(orderId) {
+      const select = document.getElementById(`riderSelect_${orderId}`);
+      const riderId = select.value;
+
+      try {
+        const res = await fetch(`${API_BASE}/store/orders/${orderId}/assign-rider`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rider_id: riderId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`🛵 ${data.message}`);
+          loadData();
+        }
+      } catch (e) {
+        alert("Failed to assign rider");
+      }
+    }
+
+    async function markPacked(orderId) {
+      try {
+        const res = await fetch(`${API_BASE}/store/orders/${orderId}/mark-packed`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          loadData();
+          showSlip(data.thermal_slip.order_number, data.thermal_slip.address, [], '4921');
+        }
+      } catch (e) {
+        alert("Failed to update status");
+      }
+    }
+
+    function showSlip(orderNumber, address, items, otp) {
+      document.getElementById('slipOrderNumber').innerText = orderNumber;
+      document.getElementById('slipAddress').innerText = address;
+      document.getElementById('slipOtp').innerText = otp || '4921';
+      const listEl = document.getElementById('slipItemsList');
+      if (items && items.length > 0) {
+        listEl.innerHTML = items.map(i => `
+          <div class="flex justify-between py-0.5 border-b border-dashed border-slate-200">
+            <span>${i.name} (${i.variant})</span>
+            <span class="font-bold">x${i.quantity}</span>
+          </div>
+        `).join('');
+      } else {
+        listEl.innerHTML = `<div>Fresh Produce / Sunday Meat Sealed Pack</div>`;
+      }
+      document.getElementById('slipModal').classList.remove('hidden');
+    }
+
+    function closeSlipModal() {
+      document.getElementById('slipModal').classList.add('hidden');
+    }
+
+    async function loadInventory() {
+      try {
+        const res = await fetch(`${API_BASE}/store/inventory`);
+        const items = await res.json();
+        const tbody = document.getElementById('inventoryTableBody');
+        tbody.innerHTML = items.map(i => `
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${i.is_sunday_only ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
+                ${i.is_sunday_only ? '🍗 SUNDAY MEAT' : '🥬 DAILY VEG'}
+              </span>
+            </td>
+            <td class="px-4 py-3 font-bold text-slate-800">${i.product_name}</td>
+            <td class="px-4 py-3">${i.weight_label}</td>
+            <td class="px-4 py-3 font-semibold text-slate-900">₹${i.price}</td>
+            <td class="px-4 py-3">
+              <span class="font-bold text-sm ${i.stock_qty < 15 ? 'text-red-600' : 'text-emerald-700'}">${i.stock_qty} units</span>
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex items-center space-x-2">
+                <input type="number" id="stock_${i.variant_id}" value="${i.stock_qty}" class="w-16 border rounded px-2 py-1 text-xs">
+                <button onclick="updateStock('${i.variant_id}')" class="bg-emerald-700 hover:bg-emerald-600 text-white px-2.5 py-1 rounded text-xs font-bold">
+                  Save
+                </button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        console.error("Failed to load inventory", e);
+      }
+    }
+
+    async function updateStock(variantId) {
+      const input = document.getElementById(`stock_${variantId}`);
+      const newQty = parseInt(input.value);
+      try {
+        const res = await fetch(`${API_BASE}/store/inventory/update-stock`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ variant_id: variantId, new_stock_qty: newQty })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert("Stock updated successfully!");
+          loadInventory();
+        }
+      } catch (e) {
+        alert("Failed to update stock");
+      }
+    }
+
+    // Auto refresh every 4 seconds
+    setInterval(loadData, 4000);
+    loadData();
+  </script>
+</body>
+</html>
