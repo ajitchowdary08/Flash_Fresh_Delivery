@@ -84,7 +84,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
   StreamSubscription? _wsSubscription;
   double? _liveRiderLat;
   double? _liveRiderLng;
-  double _lastHeading = 0.0;
 
   @override
   void initState() {
@@ -105,31 +104,29 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     )..repeat();
-    _radarAnimation = CurvedAnimation(
-      parent: _radarController,
-      curve: Curves.easeOutQuad,
-    )..addListener(() {
-        if (mounted) setState(() {});
-      });
+    _radarAnimation =
+        CurvedAnimation(parent: _radarController, curve: Curves.easeOutQuad)
+          ..addListener(() {
+            if (mounted) setState(() {});
+          });
 
     // Bike travel animation along the road curve
     _bikeController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 6),
     );
-    _bikeAnimation = CurvedAnimation(
-      parent: _bikeController,
-      curve: Curves.easeInOutCubic,
-    )..addListener(() {
-        setState(() {
-          _bikeProgress = _bikeAnimation.value * _targetProgress;
-        });
-        _syncBikePositionMarker();
-        if (_followRider && _mapController != null) {
-          final pos = _getCurrentBikePosition();
-          _mapController!.animateCamera(CameraUpdate.newLatLng(pos));
-        }
-      });
+    _bikeAnimation =
+        CurvedAnimation(parent: _bikeController, curve: Curves.easeInOutCubic)
+          ..addListener(() {
+            setState(() {
+              _bikeProgress = _bikeAnimation.value * _targetProgress;
+            });
+            _syncBikePositionMarker();
+            if (_followRider && _mapController != null) {
+              final pos = _getCurrentBikePosition();
+              _mapController!.animateCamera(CameraUpdate.newLatLng(pos));
+            }
+          });
 
     _targetProgress = _targetProgressForStatus(_currentStatus);
     _bikeController.value = 1.0; // initial jump
@@ -292,10 +289,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
       start.latitude * 0.70 + midLat * 0.30 + perpLat * 0.6,
       start.longitude * 0.70 + midLng * 0.30 + perpLng * 0.6,
     );
-    final wp2 = LatLng(
-      midLat + perpLat,
-      midLng + perpLng,
-    );
+    final wp2 = LatLng(midLat + perpLat, midLng + perpLng);
     final wp3 = LatLng(
       midLat * 0.30 + end.latitude * 0.70 - perpLat * 0.4,
       midLng * 0.30 + end.longitude * 0.70 - perpLng * 0.4,
@@ -386,7 +380,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     }
 
     // Update live rider coordinates from polling if not yet connected via WS
-    if (newRider != null && newRider["current_lat"] != null && newRider["current_lng"] != null) {
+    if (newRider != null &&
+        newRider["current_lat"] != null &&
+        newRider["current_lng"] != null) {
       final rLat = (newRider["current_lat"] as num).toDouble();
       final rLng = (newRider["current_lng"] as num).toDouble();
       if (rLat != _kHubLatitude || rLng != _kHubLongitude) {
@@ -405,8 +401,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     final next = _targetProgressForStatus(newStatus);
     if ((next - _targetProgress).abs() > 0.001) {
       _targetProgress = next;
-      final from =
-          (_bikeProgress / _targetProgress.clamp(0.0001, 1.0)).clamp(0.0, 1.0);
+      final from = (_bikeProgress / _targetProgress.clamp(0.0001, 1.0)).clamp(
+        0.0,
+        1.0,
+      );
       _bikeController.forward(from: from);
     }
 
@@ -443,7 +441,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     final dLat = p2.latitude - p1.latitude;
     final dLng = p2.longitude - p1.longitude;
     final angle = (math.atan2(dLng, dLat) * 180.0 / math.pi);
-    _lastHeading = angle;
     return angle;
   }
 
@@ -456,7 +453,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         position: pos,
         flat: true,
         anchor: const Offset(0.5, 0.65), // Centers scooter disc on the road
-        icon: _bikeIcon ??
+        icon:
+            _bikeIcon ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         infoWindow: InfoWindow(
           title: "⚡ ${_riderInfo?["name"] ?? "Ravi Kumar"} (Hero Electric)",
@@ -492,9 +490,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         math.max(_hub.longitude, _destination.longitude) + 0.003,
       ),
     );
-    _mapController!.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 60),
-    );
+    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 60));
   }
 
   @override
@@ -767,30 +763,36 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     final markers = <Marker>{};
 
     // 1. Hub Marker (🏬 Dark Store Hub)
-    markers.add(Marker(
-      markerId: const MarkerId("hub"),
-      position: _hub,
-      anchor: const Offset(0.5, 0.95),
-      icon: _hubIcon ??
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-      infoWindow: const InfoWindow(
-        title: "Miyapur Central Dark Store Hub",
-        snippet: "10 KM delivery radius • Metro Pillar 84",
+    markers.add(
+      Marker(
+        markerId: const MarkerId("hub"),
+        position: _hub,
+        anchor: const Offset(0.5, 0.95),
+        icon:
+            _hubIcon ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        infoWindow: const InfoWindow(
+          title: "Miyapur Central Dark Store Hub",
+          snippet: "10 KM delivery radius • Metro Pillar 84",
+        ),
       ),
-    ));
+    );
 
     // 2. Customer Destination Marker (🏠 Your Address)
-    markers.add(Marker(
-      markerId: const MarkerId("destination"),
-      position: _destination,
-      anchor: const Offset(0.5, 0.95),
-      icon: _destIcon ??
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-      infoWindow: InfoWindow(
-        title: "Drop-off Address",
-        snippet: widget.deliveryAddress,
+    markers.add(
+      Marker(
+        markerId: const MarkerId("destination"),
+        position: _destination,
+        anchor: const Offset(0.5, 0.95),
+        icon:
+            _destIcon ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        infoWindow: InfoWindow(
+          title: "Drop-off Address",
+          snippet: widget.deliveryAddress,
+        ),
       ),
-    ));
+    );
 
     // 3. Animated Rider Bike Marker
     if (_bikeMarker != null) {
@@ -809,43 +811,51 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
 
     // Traveled road path (Solid Brand Emerald)
     if (traveledPoints.length >= 2) {
-      polylines.add(Polyline(
-        polylineId: const PolylineId("traveled_path"),
-        points: traveledPoints,
-        color: const Color(0xFF059669),
-        width: 6,
-        jointType: JointType.round,
-        endCap: Cap.roundCap,
-        startCap: Cap.roundCap,
-      ));
+      polylines.add(
+        Polyline(
+          polylineId: const PolylineId("traveled_path"),
+          points: traveledPoints,
+          color: const Color(0xFF059669),
+          width: 6,
+          jointType: JointType.round,
+          endCap: Cap.roundCap,
+          startCap: Cap.roundCap,
+        ),
+      );
     }
 
     // Remaining road path (Mint Green track)
     if (remainingPoints.length >= 2) {
-      polylines.add(Polyline(
-        polylineId: const PolylineId("remaining_path"),
-        points: remainingPoints,
-        color: const Color(0xFF6EE7B7),
-        width: 4,
-        jointType: JointType.round,
-        endCap: Cap.roundCap,
-        startCap: Cap.roundCap,
-      ));
+      polylines.add(
+        Polyline(
+          polylineId: const PolylineId("remaining_path"),
+          points: remainingPoints,
+          color: const Color(0xFF6EE7B7),
+          width: 4,
+          jointType: JointType.round,
+          endCap: Cap.roundCap,
+          startCap: Cap.roundCap,
+        ),
+      );
     }
 
     // Pulsing radar ripple circles around the rider (Zomato-style)
     final circles = <Circle>{};
     final riderPos = _getCurrentBikePosition();
-    circles.add(Circle(
-      circleId: const CircleId("rider_radar_glow"),
-      center: riderPos,
-      radius: 20.0 + (_radarAnimation.value * 45.0),
-      fillColor: const Color(0xFF059669)
-          .withOpacity(((1.0 - _radarAnimation.value) * 0.28).clamp(0.0, 1.0)),
-      strokeColor: const Color(0xFF059669)
-          .withOpacity(((1.0 - _radarAnimation.value) * 0.70).clamp(0.0, 1.0)),
-      strokeWidth: 2,
-    ));
+    circles.add(
+      Circle(
+        circleId: const CircleId("rider_radar_glow"),
+        center: riderPos,
+        radius: 20.0 + (_radarAnimation.value * 45.0),
+        fillColor: const Color(
+          0xFF059669,
+        ).withOpacity(((1.0 - _radarAnimation.value) * 0.28).clamp(0.0, 1.0)),
+        strokeColor: const Color(
+          0xFF059669,
+        ).withOpacity(((1.0 - _radarAnimation.value) * 0.70).clamp(0.0, 1.0)),
+        strokeWidth: 2,
+      ),
+    );
 
     final int pct = (_bikeProgress * 100).toInt().clamp(0, 100);
 
@@ -887,15 +897,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 onTap: () {
                   setState(() => _followRider = !_followRider);
                   if (_followRider) {
-                    _mapController
-                        ?.animateCamera(CameraUpdate.newLatLngZoom(riderPos, 16.0));
+                    _mapController?.animateCamera(
+                      CameraUpdate.newLatLngZoom(riderPos, 16.0),
+                    );
                   } else {
                     _fitBounds();
                   }
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: _followRider
                         ? const Color(0xFF059669)
@@ -978,13 +991,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.storefront_rounded,
-                            size: 15, color: Color(0xFF059669)),
+                        const Icon(
+                          Icons.storefront_rounded,
+                          size: 15,
+                          color: Color(0xFF059669),
+                        ),
                         const SizedBox(width: 4),
                         const Text(
                           "Dark Store",
                           style: TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.bold),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -1003,11 +1021,16 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                         const Text(
                           "Home",
                           style: TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.bold),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.home_rounded,
-                            size: 15, color: Colors.redAccent),
+                        const Icon(
+                          Icons.home_rounded,
+                          size: 15,
+                          color: Colors.redAccent,
+                        ),
                       ],
                     ),
                   ],
@@ -1020,7 +1043,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     minHeight: 6,
                     backgroundColor: Colors.grey.shade200,
                     valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFF059669)),
+                      Color(0xFF059669),
+                    ),
                   ),
                 ),
               ],
@@ -1143,7 +1167,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             icon: Icons.inventory_2_rounded,
             title: "Packed & Weighed at Central Hub",
             subtitle: "Inspected by Dark Store Manager",
-            isCompleted: _currentStatus == "PACKED" ||
+            isCompleted:
+                _currentStatus == "PACKED" ||
                 _currentStatus == "OUT_FOR_DELIVERY" ||
                 _currentStatus == "DELIVERED",
             isCurrent: _currentStatus == "PACKED",
@@ -1152,7 +1177,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             icon: Icons.two_wheeler_rounded,
             title: "Rider On the Way",
             subtitle: "Heading to ${widget.deliveryAddress}",
-            isCompleted: _currentStatus == "OUT_FOR_DELIVERY" ||
+            isCompleted:
+                _currentStatus == "OUT_FOR_DELIVERY" ||
                 _currentStatus == "DELIVERED",
             isCurrent: _currentStatus == "OUT_FOR_DELIVERY",
           ),
