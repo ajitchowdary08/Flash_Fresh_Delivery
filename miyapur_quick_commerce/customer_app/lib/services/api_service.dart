@@ -714,7 +714,7 @@ class ApiService {
       String dayParam = forceSunday ? "sunday" : "weekday";
       final response = await http
           .get(Uri.parse("$baseUrl/catalog/products?day_override=$dayParam"))
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 6));
 
       if (response.statusCode == 200) {
         var body = jsonDecode(response.body);
@@ -1827,7 +1827,7 @@ class ApiService {
             id: "v_m1",
             weightLabel: "500ml",
             mrp: 30.0,
-            price: 26.0,
+            price: 30.0,
             stockQty: 200,
           ),
           ProductVariantModel(
@@ -1853,7 +1853,7 @@ class ApiService {
             id: "v_m3",
             weightLabel: "500ml",
             mrp: 38.0,
-            price: 32.0,
+            price: 38.0,
             stockQty: 180,
           ),
           ProductVariantModel(
