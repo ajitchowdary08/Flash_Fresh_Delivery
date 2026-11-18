@@ -34,17 +34,94 @@ RIDER_STATE = {
 @router.get("/profile")
 def get_rider_profile(db: Session = Depends(get_db)):
     """
-    Returns current rider profile, rating stats, and online status.
+    Returns current rider profile, live DB rating stats, completed trips, and online status.
     """
+    delivered_orders = db.query(Order).filter(
+        Order.rider_id == RIDER_STATE["rider_id"],
+        Order.status == "DELIVERED"
+    ).all()
+
+    completed_trips = len(delivered_orders)
+    today_earnings = sum(35.0 + (10.0 if o.distance_km > 3.0 else 0.0) for o in delivered_orders)
+    cod_collected = sum(o.grand_total for o in delivered_orders if (o.payment_method or "").upper() == "COD")
+
     rated_orders = db.query(Order).filter(Order.rider_rating.isnot(None)).all()
-    if rated_orders:
-        RIDER_STATE["rating"] = round(sum(o.rider_rating for o in rated_orders) / len(rated_orders), 1)
-    return RIDER_STATE
+    avg_rating = round(sum(o.rider_rating for o in rated_orders) / len(rated_orders), 1) if rated_orders else 5.0
+
+    return {
+        "rider_id": RIDER_STATE["rider_id"],
+        "name": RIDER_STATE["name"],
+        "phone": RIDER_STATE["phone"],
+        "vehicle": RIDER_STATE["vehicle"],
+        "rating": avg_rating,
+        "is_online": RIDER_STATE["is_online"],
+        "today_earnings": today_earnings,
+        "completed_trips_today": completed_trips,
+        "cod_cash_in_hand": cod_collected,
+        "current_lat": RIDER_STATE["current_lat"],
+        "current_lng": RIDER_STATE["current_lng"],
+    }
+
+@router.get("/earnings")
+def get_rider_earnings(db: Session = Depends(get_db)):
+    """
+    Returns 100% dynamic earnings, trip breakdowns, incentives, and COD floating cash from DB.
+    """
+    delivered_orders = db.query(Order).filter(
+        Order.rider_id == RIDER_STATE["rider_id"],
+        Order.status == "DELIVERED"
+    ).order_by(Order.created_at.desc()).all()
+
+    completed_trips = len(delivered_orders)
+    base_pay = completed_trips * 35.0
+    distance_bonus = sum(10.0 for o in delivered_orders if o.distance_km > 3.0)
+    meat_incentive = sum(15.0 for o in delivered_orders if o.is_sunday_meat_order)
+    today_earnings = base_pay + distance_bonus + meat_incentive
+    cod_cash_in_hand = sum(o.grand_total for o in delivered_orders if (o.payment_method or "").upper() == "COD")
+
+    # Dynamic Daily Incentive Milestones
+    m1_achieved = completed_trips >= 5
+    m2_achieved = completed_trips >= 10
+    m3_achieved = completed_trips >= 15
+    incentive_bonus = (50.0 if m1_achieved else 0.0) + (70.0 if m2_achieved else 0.0) + (80.0 if m3_achieved else 0.0)
+
+    trips_history = []
+    for o in delivered_orders[:20]:
+        payout = 35.0 + (10.0 if o.distance_km > 3.0 else 0.0) + (15.0 if o.is_sunday_meat_order else 0.0)
+        trips_history.append({
+            "order_id": o.id,
+            "order_number": o.order_number,
+            "delivery_address": o.delivery_address,
+            "distance_km": o.distance_km,
+            "payout": payout,
+            "payment_method": o.payment_method or "ONLINE",
+            "grand_total": o.grand_total,
+            "delivered_at": o.created_at.strftime("%I:%M %p")
+        })
+
+    return {
+        "success": True,
+        "today_earnings": today_earnings + incentive_bonus,
+        "completed_trips": completed_trips,
+        "base_pay": base_pay,
+        "distance_bonus": distance_bonus,
+        "meat_incentive": meat_incentive,
+        "incentive_bonus": incentive_bonus,
+        "cod_cash_in_hand": cod_cash_in_hand,
+        "hub_deposit_limit": 1500.0,
+        "milestones": [
+            {"tier": "Tier 1: 5 Deliveries", "reward": "+₹50 Bonus", "target": 5, "achieved": m1_achieved},
+            {"tier": "Tier 2: 10 Deliveries", "reward": "+₹120 Bonus", "target": 10, "achieved": m2_achieved},
+            {"tier": "Tier 3: 15 Deliveries", "reward": "+₹200 Bonus", "target": 15, "achieved": m3_achieved},
+        ],
+        "trips_history": trips_history,
+        "settlement_info": "Every Tuesday directly to Bank A/c"
+    }
 
 @router.get("/reviews")
 def get_rider_reviews(db: Session = Depends(get_db)):
     """
-    Returns live customer rating average, total rating count, and recent reviews for the Rider App.
+    Returns live customer rating average, total rating count, and recent reviews from database.
     """
     rated_orders = db.query(Order).filter(Order.rider_rating.isnot(None)).order_by(Order.created_at.desc()).all()
 
@@ -52,7 +129,7 @@ def get_rider_reviews(db: Session = Depends(get_db)):
     if total_ratings > 0:
         avg_rating = round(sum(o.rider_rating for o in rated_orders) / total_ratings, 1)
     else:
-        avg_rating = 4.9
+        avg_rating = 5.0
 
     recent_reviews = []
     for o in rated_orders[:15]:
@@ -67,7 +144,7 @@ def get_rider_reviews(db: Session = Depends(get_db)):
     return {
         "success": True,
         "avg_rating": avg_rating,
-        "total_ratings": total_ratings if total_ratings > 0 else 128,
+        "total_ratings": total_ratings,
         "recent_reviews": recent_reviews
     }
 

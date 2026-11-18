@@ -8,26 +8,31 @@ class RiderApiService {
     defaultValue: "https://flash-fresh.onrender.com/api/v1",
   );
 
-  // 1. Get Profile
+  // 1. Get Dynamic Rider Profile from Live Database
   static Future<Map<String, dynamic>> getProfile() async {
     try {
-      final res = await http.get(Uri.parse("$baseUrl/rider/profile")).timeout(const Duration(seconds: 3));
-      if (res.statusCode == 200) return jsonDecode(res.body);
-    } catch (_) {}
+      final res = await http.get(Uri.parse("$baseUrl/rider/profile")).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      // ignore
+    }
 
     return {
       "rider_id": "rdr_ravi_01",
       "name": "Ravi Kumar",
       "phone": "+91 98480 12345",
       "vehicle": "Hero Electric (TS 07 EK 4921)",
-      "rating": 4.9,
+      "rating": 5.0,
       "is_online": true,
-      "today_earnings": 385.0,
-      "completed_trips_today": 9,
+      "today_earnings": 0.0,
+      "completed_trips_today": 0,
+      "cod_cash_in_hand": 0.0,
     };
   }
 
-  // 2. Toggle Online/Offline
+  // 2. Toggle Online/Offline Duty State
   static Future<bool> toggleDuty(bool isOnline) async {
     try {
       final res = await http.post(
@@ -37,7 +42,7 @@ class RiderApiService {
           "rider_id": "rdr_ravi_01",
           "is_online": isOnline,
         }),
-      ).timeout(const Duration(seconds: 3));
+      ).timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
         var body = jsonDecode(res.body);
         return body['is_online'] ?? isOnline;
@@ -46,78 +51,39 @@ class RiderApiService {
     return isOnline;
   }
 
-  // 3. Get Available Orders
+  // 3. Get Real-Time Available Orders from Database (Never static mock data)
   static Future<List<RiderOrderModel>> getAvailableOrders() async {
     try {
-      final res = await http.get(Uri.parse("$baseUrl/rider/orders/available")).timeout(const Duration(seconds: 3));
+      final res = await http.get(Uri.parse("$baseUrl/rider/orders/available")).timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
-        List data = jsonDecode(res.body);
-        return data.map((x) => RiderOrderModel.fromJson(x)).toList();
+        final data = jsonDecode(res.body);
+        if (data is List) {
+          return data.map((x) => RiderOrderModel.fromJson(x)).toList();
+        }
       }
     } catch (_) {}
-
-    return [
-      RiderOrderModel(
-        orderId: "ord_demo_01",
-        orderNumber: "MYP-20261115-4819",
-        status: "PACKED",
-        itemsCount: 3,
-        distanceKm: 2.1,
-        deliveryAddress: "Madinaguda Central (Opp. GSM Mall), Hyderabad",
-        grandTotal: 340.0,
-        payoutAmount: 45.0,
-        pickupHub: "Central Dark Store Hub (Metro Pillar 84)",
-        customerPhone: "+91 98765 43210",
-        paymentMethod: "UPI",
-        paymentStatus: "PAID",
-        deliveryOtp: "4921",
-        items: [
-          RiderOrderItem(name: "Fresh Hybrid Tomatoes", variant: "1kg", quantity: 1),
-          RiderOrderItem(name: "Kurnool Red Onions", variant: "1kg", quantity: 1),
-          RiderOrderItem(name: "Hydroponic Palak", variant: "250g Bunch", quantity: 2),
-        ],
-      ),
-      RiderOrderModel(
-        orderId: "ord_demo_02",
-        orderNumber: "MYP-20261115-5120",
-        status: "PLACED",
-        itemsCount: 2,
-        distanceKm: 3.8,
-        deliveryAddress: "Chandanagar Rythu Bazar Road, Hyderabad",
-        grandTotal: 490.0,
-        payoutAmount: 55.0,
-        pickupHub: "Central Dark Store Hub (Metro Pillar 84)",
-        customerPhone: "+91 98490 98765",
-        paymentMethod: "COD",
-        paymentStatus: "PENDING",
-        deliveryOtp: "4921",
-        items: [
-          RiderOrderItem(name: "Sunday Fresh Chicken (Curry Cut)", variant: "1kg", quantity: 1),
-          RiderOrderItem(name: "Fresh Coriander & Mint Combo", variant: "1 Bunch", quantity: 1),
-        ],
-      ),
-    ];
+    return []; // Return empty list when no active orders exist in DB
   }
 
-  // 4. Accept Order
+  // 4. Accept Order Atomically
   static Future<bool> acceptOrder(String orderId) async {
     try {
-      final res = await http.post(Uri.parse("$baseUrl/rider/orders/$orderId/accept")).timeout(const Duration(seconds: 3));
-      if (res.statusCode == 200) return true;
+      final res = await http.post(Uri.parse("$baseUrl/rider/orders/$orderId/accept")).timeout(const Duration(seconds: 5));
+      return res.statusCode == 200;
     } catch (_) {}
-    return true;
+    return false;
   }
 
-  // 5. Pickup Order from Hub
+  // 5. Pickup Order from Hub & Mark OUT_FOR_DELIVERY
   static Future<bool> pickupOrder(String orderId) async {
     try {
-      final res = await http.post(Uri.parse("$baseUrl/rider/orders/$orderId/pickup")).timeout(const Duration(seconds: 3));
-      if (res.statusCode == 200) return true;
+      final res = await http.post(Uri.parse("$baseUrl/rider/orders/$orderId/pickup")).timeout(const Duration(seconds: 5));
+      return res.statusCode == 200;
     } catch (_) {}
-    return true;
+    return false;
   }
 
-  // 6. Broadcast Live Location GPS
+  // 6. Broadcast Real Live GPS Coordinates to Customer Map
   static Future<bool> updateLocation(String orderId, double lat, double lng) async {
     try {
       final res = await http.post(
@@ -128,13 +94,13 @@ class RiderApiService {
           "latitude": lat,
           "longitude": lng,
         }),
-      ).timeout(const Duration(seconds: 3));
+      ).timeout(const Duration(seconds: 4));
       return res.statusCode == 200;
     } catch (_) {}
-    return true;
+    return false;
   }
 
-  // 7. Verify 4-Digit Delivery OTP & Complete Delivery
+  // 7. Verify Customer Delivery PIN against Live Database (Server Authoritative)
   static Future<Map<String, dynamic>> verifyDeliveryOtp(String orderId, String otp) async {
     try {
       final res = await http.post(
@@ -144,25 +110,18 @@ class RiderApiService {
           "order_id": orderId,
           "otp": otp,
         }),
-      ).timeout(const Duration(seconds: 4));
+      ).timeout(const Duration(seconds: 6));
 
       return jsonDecode(res.body);
-    } catch (_) {}
-
-    if (otp == "4921" || otp.length == 4) {
+    } catch (e) {
       return {
-        "success": true,
-        "message": "Delivery verified with OTP!",
-        "earned": 45.0
+        "success": false,
+        "detail": "Network timeout. Could not connect to verification server."
       };
     }
-    return {
-      "success": false,
-      "detail": "Invalid OTP code. Please enter 4-digit code shown on customer app."
-    };
   }
 
-  // 8. Fetch Snapped Street Route Points
+  // 8. Dynamic Street Route Waypoints from Map Service
   static Future<List<Map<String, double>>> getRoutePoints({
     required double originLat,
     required double originLng,
@@ -174,7 +133,7 @@ class RiderApiService {
           .get(Uri.parse(
             "$baseUrl/maps/route?origin_lat=$originLat&origin_lng=$originLng&dest_lat=$destLat&dest_lng=$destLng",
           ))
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data["points"] is List) {
@@ -188,7 +147,7 @@ class RiderApiService {
       }
     } catch (_) {}
 
-    // Fallback road interpolation
+    // Fallback road linear points
     final List<Map<String, double>> fallback = [];
     for (int i = 0; i <= 12; i++) {
       final double t = i / 12.0;
@@ -200,33 +159,45 @@ class RiderApiService {
     return fallback;
   }
 
-  // 9. Get Live Rider Reviews & Average Rating
-  static Future<Map<String, dynamic>> getRiderReviews() async {
+  // 9. Get Dynamic Earnings, Milestones, and Floating Cash from DB
+  static Future<Map<String, dynamic>> getEarnings() async {
     try {
-      final res = await http.get(Uri.parse("$baseUrl/rider/reviews")).timeout(const Duration(seconds: 3));
+      final res = await http.get(Uri.parse("$baseUrl/rider/earnings")).timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) return jsonDecode(res.body);
     } catch (_) {}
 
     return {
       "success": true,
-      "avg_rating": 4.9,
-      "total_ratings": 128,
-      "recent_reviews": [
-        {
-          "order_number": "#MYP-20261118-2313",
-          "rider_rating": 5,
-          "freshness_rating": 5,
-          "review": "Super fast 10-minute delivery!",
-          "date": "Today, 10:15 AM"
-        },
-        {
-          "order_number": "#MYP-20261118-1904",
-          "rider_rating": 5,
-          "freshness_rating": 5,
-          "review": "Very polite rider and fresh produce!",
-          "date": "Yesterday, 06:40 PM"
-        }
-      ]
+      "today_earnings": 0.0,
+      "completed_trips": 0,
+      "base_pay": 0.0,
+      "distance_bonus": 0.0,
+      "meat_incentive": 0.0,
+      "incentive_bonus": 0.0,
+      "cod_cash_in_hand": 0.0,
+      "hub_deposit_limit": 1500.0,
+      "milestones": [
+        {"tier": "Tier 1: 5 Deliveries", "reward": "+₹50 Bonus", "target": 5, "achieved": false},
+        {"tier": "Tier 2: 10 Deliveries", "reward": "+₹120 Bonus", "target": 10, "achieved": false},
+        {"tier": "Tier 3: 15 Deliveries", "reward": "+₹200 Bonus", "target": 15, "achieved": false},
+      ],
+      "trips_history": [],
+      "settlement_info": "Every Tuesday directly to Bank A/c"
+    };
+  }
+
+  // 10. Get Live Customer Reviews from DB
+  static Future<Map<String, dynamic>> getRiderReviews() async {
+    try {
+      final res = await http.get(Uri.parse("$baseUrl/rider/reviews")).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) return jsonDecode(res.body);
+    } catch (_) {}
+
+    return {
+      "success": true,
+      "avg_rating": 5.0,
+      "total_ratings": 0,
+      "recent_reviews": []
     };
   }
 }

@@ -15,17 +15,17 @@ class RiderHomeScreen extends StatefulWidget {
 
 class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProviderStateMixin {
   bool _isOnline = true;
-  double _todayEarnings = 385.0;
-  int _completedTrips = 9;
-  String _riderName = "Ravi Kumar";
-  String _vehicleInfo = "Hero Electric (TS 07 EK 4921)";
-  double _riderRating = 4.9;
+  double _todayEarnings = 0.0;
+  int _completedTrips = 0;
+  String _riderName = "Delivery Partner";
+  String _vehicleInfo = "Assigned Vehicle";
+  double _riderRating = 5.0;
 
   List<RiderOrderModel> _availableOrders = [];
   bool _isLoading = true;
   Timer? _radarTimer;
   Timer? _shiftTimer;
-  int _shiftSeconds = 9840; // ~2h 44m
+  int _shiftSeconds = 0;
   final Set<String> _dismissedOrderIds = {};
 
   // Incoming Order Alert Modal state
@@ -95,12 +95,12 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
 
     if (!mounted) return;
     setState(() {
-      _riderName = profile['name'] ?? "Ravi Kumar";
-      _vehicleInfo = profile['vehicle'] ?? "Hero Electric";
-      _riderRating = (profile['rating'] as num?)?.toDouble() ?? 4.9;
+      _riderName = profile['name'] ?? "Delivery Partner";
+      _vehicleInfo = profile['vehicle'] ?? "Assigned Fleet";
+      _riderRating = (profile['rating'] as num?)?.toDouble() ?? 5.0;
       _isOnline = profile['is_online'] ?? true;
-      _todayEarnings = (profile['today_earnings'] as num?)?.toDouble() ?? 385.0;
-      _completedTrips = profile['completed_trips_today'] ?? 9;
+      _todayEarnings = (profile['today_earnings'] as num?)?.toDouble() ?? 0.0;
+      _completedTrips = profile['completed_trips_today'] ?? 0;
       _availableOrders = orders;
       _isLoading = false;
     });
