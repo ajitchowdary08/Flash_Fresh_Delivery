@@ -275,17 +275,7 @@ class _MainShellState extends State<MainShell> {
               onAddToCart: _addToCart,
               onCartUpdated: () => setState(() {}),
               onOpenLogin: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => AuthScreen(
-                      onLoginSuccess: (phone, name, id) {
-                        _saveSession(phone, name, id);
-                        Navigator.pop(context);
-                      },
-                    ),
-                  ),
-                );
+                setState(() => _currentIndex = 1);
               },
               onOpenCart: () {
                 Navigator.push(
@@ -307,6 +297,9 @@ class _MainShellState extends State<MainShell> {
               onLoginSuccess: (phone, name, id) {
                 _saveSession(phone, name, id);
               },
+              onCancel: () {
+                setState(() => _currentIndex = 0);
+              },
             ),
           ];
 
@@ -315,82 +308,86 @@ class _MainShellState extends State<MainShell> {
       safeIndex = 0;
     }
 
+    // Hide bottom navigation bar on Login screen
+    final bool showBottomNav = _isLoggedIn || safeIndex == 0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F8F6),
       body: Stack(
         children: [
           IndexedStack(index: safeIndex, children: screens),
 
-          // Floating Dark Glass Navigation Bar
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 16,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  height: 66,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF082219).withOpacity(0.92),
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
-                      width: 1.2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF00FF87).withOpacity(0.15),
-                        blurRadius: 28,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 4),
+          // Floating Dark Glass Navigation Bar (Hidden on Login Screen)
+          if (showBottomNav)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    height: 64,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF082219).withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 1.2,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: _isLoggedIn
-                        ? [
-                            _buildNavItem(
-                              0,
-                              Icons.bolt_rounded,
-                              Icons.bolt_outlined,
-                              "Fresh",
-                            ),
-                            _buildNavItem(
-                              1,
-                              Icons.receipt_long_rounded,
-                              Icons.receipt_long_outlined,
-                              "Orders",
-                            ),
-                            _buildNavItem(
-                              2,
-                              Icons.person_rounded,
-                              Icons.person_outline_rounded,
-                              "Account",
-                            ),
-                          ]
-                        : [
-                            _buildNavItem(
-                              0,
-                              Icons.bolt_rounded,
-                              Icons.bolt_outlined,
-                              "Fresh",
-                            ),
-                            _buildNavItem(
-                              1,
-                              Icons.login_rounded,
-                              Icons.login_outlined,
-                              "Login",
-                            ),
-                          ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00FF87).withOpacity(0.15),
+                          blurRadius: 28,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: _isLoggedIn
+                          ? [
+                              _buildNavItem(
+                                0,
+                                Icons.home_rounded,
+                                Icons.home_outlined,
+                                "Home",
+                              ),
+                              _buildNavItem(
+                                1,
+                                Icons.receipt_long_rounded,
+                                Icons.receipt_long_outlined,
+                                "Orders",
+                              ),
+                              _buildNavItem(
+                                2,
+                                Icons.person_rounded,
+                                Icons.person_outline_rounded,
+                                "Account",
+                              ),
+                            ]
+                          : [
+                              _buildNavItem(
+                                0,
+                                Icons.home_rounded,
+                                Icons.home_outlined,
+                                "Home",
+                              ),
+                              _buildNavItem(
+                                1,
+                                Icons.login_rounded,
+                                Icons.login_outlined,
+                                "Login",
+                              ),
+                            ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -428,19 +425,17 @@ class _MainShellState extends State<MainShell> {
             Icon(
               isSelected ? activeIcon : inactiveIcon,
               color: isSelected ? const Color(0xFF00FF87) : Colors.white70,
-              size: 22,
+              size: 20,
             ),
-            if (isSelected) ...[
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Color(0xFF00FF87),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? const Color(0xFF00FF87) : Colors.white70,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                fontSize: 12,
               ),
-            ],
+            ),
           ],
         ),
       ),
