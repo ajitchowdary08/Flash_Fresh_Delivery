@@ -68,6 +68,9 @@ class RiderApiService {
         payoutAmount: 45.0,
         pickupHub: "Central Dark Store Hub (Metro Pillar 84)",
         customerPhone: "+91 98765 43210",
+        paymentMethod: "UPI",
+        paymentStatus: "PAID",
+        deliveryOtp: "4921",
         items: [
           RiderOrderItem(name: "Fresh Hybrid Tomatoes", variant: "1kg", quantity: 1),
           RiderOrderItem(name: "Kurnool Red Onions", variant: "1kg", quantity: 1),
@@ -85,6 +88,9 @@ class RiderApiService {
         payoutAmount: 55.0,
         pickupHub: "Central Dark Store Hub (Metro Pillar 84)",
         customerPhone: "+91 98490 98765",
+        paymentMethod: "COD",
+        paymentStatus: "PENDING",
+        deliveryOtp: "4921",
         items: [
           RiderOrderItem(name: "Sunday Fresh Chicken (Curry Cut)", variant: "1kg", quantity: 1),
           RiderOrderItem(name: "Fresh Coriander & Mint Combo", variant: "1 Bunch", quantity: 1),

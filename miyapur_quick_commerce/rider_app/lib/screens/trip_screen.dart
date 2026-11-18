@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/rider_order.dart';
 import '../services/rider_api_service.dart';
 
@@ -7,17 +9,31 @@ class TripScreen extends StatefulWidget {
   final RiderOrderModel order;
   final VoidCallback onTripCompleted;
 
-  const TripScreen({super.key, required this.order, required this.onTripCompleted});
+  const TripScreen({
+    super.key,
+    required this.order,
+    required this.onTripCompleted,
+  });
 
   @override
   State<TripScreen> createState() => _TripScreenState();
 }
 
 class _TripScreenState extends State<TripScreen> {
-  // Stages: 0 = heading_to_hub, 1 = en_route_to_customer, 2 = delivered
+  // Stages:
+  // 0 = heading_to_hub
+  // 1 = at_hub_verifying_bag
+  // 2 = en_route_to_customer
+  // 3 = at_doorstep_collecting_pin
+  // 4 = delivered
   int _stage = 0;
   bool _isLoading = false;
   final TextEditingController _otpCtrl = TextEditingController();
+
+  // Bag verification checklist
+  late List<bool> _checkedItems;
+  bool _sealVerified = true;
+  bool _cashCollected = false;
 
   // Live GPS simulation & sync
   Timer? _simTimer;
@@ -28,8 +44,10 @@ class _TripScreenState extends State<TripScreen> {
   @override
   void initState() {
     super.initState();
+    _checkedItems = List.generate(widget.order.items.length, (_) => true);
+
     if (widget.order.status == 'OUT_FOR_DELIVERY') {
-      _stage = 1;
+      _stage = 2;
       _fetchWaypoints();
     }
   }
@@ -61,21 +79,17 @@ class _TripScreenState extends State<TripScreen> {
       setState(() => _isSimulating = false);
     } else {
       setState(() => _isSimulating = true);
-      _simTimer = Timer.periodic(const Duration(milliseconds: 1400), (timer) async {
+      _simTimer = Timer.periodic(const Duration(milliseconds: 1200), (timer) async {
         if (_currentWpIdx >= _routeWaypoints.length - 1) {
           timer.cancel();
           if (!mounted) return;
           setState(() {
             _isSimulating = false;
             _currentWpIdx = _routeWaypoints.length - 1;
+            _stage = 3;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("🛵 Arrived at customer doorstep! Ask customer for 4-digit PIN."),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _showOtpVerificationDialog();
+          HapticFeedback.vibrate();
+          _showArrivalToast();
           return;
         }
 
@@ -93,543 +107,926 @@ class _TripScreenState extends State<TripScreen> {
     }
   }
 
+  void _showArrivalToast() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.doorbell_rounded, color: Colors.white),
+            SizedBox(width: 10),
+            Text(
+              "📍 Arrived at Customer Doorstep! Verify 4-digit PIN.",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF00C853),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Future<void> _openGoogleMaps(double lat, double lng) async {
+    final uri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng");
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Could not open Google Maps navigation.")),
+      );
+    }
+  }
+
+  Future<void> _callCustomer(String phone) async {
+    final clean = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    final uri = Uri.parse("tel:$clean");
+    try {
+      await launchUrl(uri);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Calling customer: $phone")),
+      );
+    }
+  }
+
   void _handlePickupFromHub() async {
+    HapticFeedback.heavyImpact();
     setState(() => _isLoading = true);
     await RiderApiService.pickupOrder(widget.order.orderId);
     if (!mounted) return;
     setState(() {
       _isLoading = false;
-      _stage = 1;
+      _stage = 2;
     });
     _fetchWaypoints();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Bag collected & verified! En route to customer location."),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _showOtpVerificationDialog() {
-    _otpCtrl.clear();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+      SnackBar(
+        content: const Row(
           children: [
-            Icon(Icons.shield_outlined, color: Colors.green),
-            SizedBox(width: 8),
-            Text("Customer Delivery PIN", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Icon(Icons.two_wheeler_rounded, color: Colors.white),
+            SizedBox(width: 10),
+            Text("Bag collected & verified! En route to customer."),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Ask customer for the 4-digit PIN displayed on their order tracking screen.",
-              style: TextStyle(fontSize: 12, color: Colors.black87),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _otpCtrl,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              autofocus: true,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8),
-              textAlign: TextAlign.center,
-              decoration: InputDecoration(
-                hintText: "••••",
-                counterText: "",
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final otp = _otpCtrl.text.trim();
-              if (otp.length != 4) return;
-
-              Navigator.pop(ctx);
-              _handleVerifyOtpAndComplete(otp);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green.shade800,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text("Verify PIN & Deliver", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
+        backgroundColor: const Color(0xFF00C853),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
   void _handleVerifyOtpAndComplete(String otp) async {
+    HapticFeedback.heavyImpact();
     setState(() => _isLoading = true);
     final res = await RiderApiService.verifyDeliveryOtp(widget.order.orderId, otp);
     if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (res['success'] == true) {
-      setState(() => _stage = 2);
-
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Column(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 54),
-              SizedBox(height: 8),
-              Text("Delivery Completed!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "₹${widget.order.payoutAmount.toStringAsFixed(0)}",
-                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.green),
-              ),
-              const Text("Credited to your Rider Wallet", style: TextStyle(color: Colors.grey, fontSize: 12)),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
-                child: const Text(
-                  "⚡ Verified with OTP • 10-Minute SLA Maintained",
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.pop(context);
-                  widget.onTripCompleted();
-                },
-                child: const Text("Next Delivery", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            )
-          ],
-        ),
-      );
+      setState(() => _stage = 4);
+      _showSuccessCelebrationDialog();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['detail'] ?? "Incorrect PIN code! Please re-verify with customer."),
-          backgroundColor: Colors.red.shade700,
+          content: Text(res['detail'] ?? "Incorrect PIN! Please check customer's order screen."),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        title: Text(
-          _stage == 0 ? "Pickup: Central Dark Store" : "Drop: Customer Doorstep",
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        backgroundColor: Colors.green.shade800,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
+  void _showSuccessCelebrationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF191B26),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Status Header Banner
             Container(
-              padding: const EdgeInsets.all(16),
-              color: _stage == 0 ? Colors.amber.shade700 : Colors.green.shade800,
-              child: Row(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00C853).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_circle_rounded, color: Color(0xFF00C853), size: 54),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Delivery Completed!",
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "₹${widget.order.payoutAmount.toStringAsFixed(0)}",
+              style: const TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF00C853),
+              ),
+            ),
+            const Text(
+              "Credited instantly to your Rider Wallet",
+              style: TextStyle(color: Colors.white60, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF242738),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.white.withOpacity(0.2),
-                    child: Icon(
-                      _stage == 0 ? Icons.store : Icons.two_wheeler,
-                      color: Colors.white,
+                  Icon(Icons.bolt, color: Color(0xFFFC8019), size: 16),
+                  SizedBox(width: 6),
+                  Text(
+                    "⚡ 10-Minute SLA Maintained",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFC8019),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _stage == 0 ? "STEP 1: PICKUP FROM HUB" : "STEP 2: EN ROUTE TO CUSTOMER",
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        Text(
-                          _stage == 0
-                              ? "Head to Central Dark Store Hub (Pillar 84)"
-                              : "Deliver bag to customer & verify 4-digit PIN",
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
-                    child: Text(
-                      "₹${widget.order.payoutAmount.toStringAsFixed(0)} Pay",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green.shade900),
-                    ),
-                  )
                 ],
               ),
             ),
-
-            const SizedBox(height: 12),
-
-            // Order Details Card
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Card(
-                elevation: 1,
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFC8019),
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Order #${widget.order.orderNumber}",
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4)),
-                            child: Text(
-                              "${widget.order.distanceKm} KM Trip",
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                          )
-                        ],
-                      ),
-                      const Divider(height: 20),
-
-                      _routeStep(
-                        icon: Icons.storefront,
-                        color: Colors.amber.shade800,
-                        title: "Pickup Point:",
-                        address: widget.order.pickupHub,
-                        isDone: _stage > 0,
-                      ),
-                      const SizedBox(height: 12),
-
-                      _routeStep(
-                        icon: Icons.location_on,
-                        color: Colors.green.shade700,
-                        title: "Drop Location:",
-                        address: widget.order.deliveryAddress,
-                        isDone: _stage == 2,
-                      ),
-
-                      const Divider(height: 24),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text("Customer Contact:", style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                Text(
-                                  widget.order.customerPhone,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ],
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text("Calling ${widget.order.customerPhone}...")),
-                              );
-                            },
-                            icon: const Icon(Icons.phone, size: 16, color: Colors.green),
-                            label: const Text("Call", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.green),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          )
-                        ],
-                      )
-                    ],
-                  ),
-                ),
+                elevation: 0,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+                widget.onTripCompleted();
+              },
+              child: const Text(
+                "Back to Radar for Next Order",
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 12),
-
-            // Items List
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Items in Bag (Verify at Hub):",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                      const SizedBox(height: 8),
-                      ...widget.order.items.map((i) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.check_box, color: Colors.green, size: 18),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    "${i.name} (${i.variant})",
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                ),
-                                Text(
-                                  "x${i.quantity}",
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                )
-                              ],
-                            ),
-                          )),
-                    ],
-                  ),
-                ),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F1118),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF161822),
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _stage == 0
+                  ? "Step 1: Head to Dark Store"
+                  : _stage == 1
+                      ? "Step 2: Bag & Produce Check"
+                      : _stage == 2
+                          ? "Step 3: Delivering to Customer"
+                          : "Step 4: Doorstep Handover",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            Text(
+              "#${widget.order.orderNumber}",
+              style: const TextStyle(fontSize: 11, color: Colors.white60),
+            ),
+          ],
+        ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00C853).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              "₹${widget.order.payoutAmount.toStringAsFixed(0)} Pay",
+              style: const TextStyle(
+                color: Color(0xFF00C853),
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
               ),
             ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildStageProgressIndicator(),
+            const SizedBox(height: 14),
 
-            const SizedBox(height: 16),
+            // Payment Badge (COD vs Online)
+            _buildPaymentMethodBanner(),
+            const SizedBox(height: 14),
 
-            // Live GPS Trip Sync Card (Active during Stage 1)
-            if (_stage == 1) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  color: Colors.white,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade50,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.satellite_alt_rounded, color: Colors.green, size: 20),
-                            ),
-                            const SizedBox(width: 10),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "⚡ Live GPS Trip Sync",
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
-                                  Text(
-                                    "Broadcasting coordinates to customer map",
-                                    style: TextStyle(fontSize: 11, color: Colors.black54),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: _isSimulating ? Colors.green.shade100 : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 3,
-                                    backgroundColor: _isSimulating ? Colors.green : Colors.grey,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _isSimulating ? "Live Streaming" : "Standby",
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: _isSimulating ? Colors.green.shade900 : Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: LinearProgressIndicator(
-                            value: _routeWaypoints.isEmpty
-                                ? 0.0
-                                : (_currentWpIdx / (_routeWaypoints.length - 1)).clamp(0.0, 1.0),
-                            backgroundColor: Colors.grey.shade200,
-                            valueColor: const AlwaysStoppedAnimation(Colors.green),
-                            minHeight: 8,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Hub: Pillar 84",
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                            ),
-                            Text(
-                              _routeWaypoints.isEmpty
-                                  ? "Calculating route..."
-                                  : "${((_currentWpIdx / (_routeWaypoints.length - 1)) * 100).toInt()}% Traveled",
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
-                            ),
-                            Text(
-                              "Customer Doorstep",
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _routeWaypoints.isEmpty ? null : _toggleSimulatedRide,
-                            icon: Icon(_isSimulating ? Icons.pause_circle : Icons.play_circle_fill, size: 20),
-                            label: Text(
-                              _isSimulating ? "Pause Ride Simulation" : "⚡ Simulate Live Ride (Stream GPS)",
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _isSimulating ? Colors.orange.shade700 : Colors.blue.shade700,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
+            // Route Summary Card
+            _buildRouteDetailsCard(),
+            const SizedBox(height: 14),
 
-            const SizedBox(height: 12),
-
-            // Action Button
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _isLoading
-                      ? null
-                      : (_stage == 0 ? _handlePickupFromHub : _showOtpVerificationDialog),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _stage == 0 ? Colors.amber.shade800 : Colors.green.shade700,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : Text(
-                          _stage == 0
-                              ? "✓ Confirm Bag Picked Up from Hub"
-                              : "🔑 Enter Customer PIN & Complete Delivery",
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                        ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
+            // Dynamic Stage Action Content
+            if (_stage == 0) _buildStage0HeadToHub(),
+            if (_stage == 1) _buildStage1BagChecklist(),
+            if (_stage == 2) _buildStage2LiveNavigation(),
+            if (_stage >= 3) _buildStage3DoorstepHandover(),
           ],
         ),
       ),
     );
   }
 
-  Widget _routeStep({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String address,
-    required bool isDone,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: isDone ? Colors.grey : color, size: 22),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
+  Widget _buildStageProgressIndicator() {
+    final stages = ["Hub", "Verify", "Ride", "Handover"];
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF191B26),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(4, (index) {
+          final isCompleted = _stage > index;
+          final isCurrent = _stage == index;
+
+          return Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isCompleted
+                        ? const Color(0xFF00C853)
+                        : isCurrent
+                            ? const Color(0xFFFC8019)
+                            : const Color(0xFF282B3B),
+                  ),
+                  child: Center(
+                    child: isCompleted
+                        ? const Icon(Icons.check, size: 14, color: Colors.white)
+                        : Text(
+                            "${index + 1}",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isCurrent ? Colors.white : Colors.white60,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  stages[index],
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                    color: isCurrent ? Colors.white : Colors.white60,
+                  ),
+                ),
+                if (index < 3)
+                  const Expanded(
+                    child: Divider(
+                      color: Colors.white12,
+                      indent: 8,
+                      endIndent: 8,
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethodBanner() {
+    final isCod = widget.order.paymentMethod.toUpperCase() == "COD";
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isCod
+            ? const Color(0xFFFFB300).withValues(alpha: 0.12)
+            : const Color(0xFF00C853).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isCod
+              ? const Color(0xFFFFB300).withValues(alpha: 0.4)
+              : const Color(0xFF00C853).withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isCod ? Icons.payments_rounded : Icons.verified_rounded,
+            color: isCod ? const Color(0xFFFFB300) : const Color(0xFF00C853),
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isCod
+                      ? "CASH ON DELIVERY (COD)"
+                      : "PAID ONLINE (UPI / CASHFREE)",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.6,
+                    color: isCod ? const Color(0xFFFFB300) : const Color(0xFF00C853),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isCod
+                      ? "Collect ₹${widget.order.grandTotal.toStringAsFixed(0)} CASH at doorstep"
+                      : "Collect ₹0.00 — Do NOT ask customer for cash",
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteDetailsCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF191B26),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Pickup
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: isDone ? Colors.grey : Colors.black87,
-                ),
-              ),
-              Text(
-                address,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isDone ? Colors.grey : Colors.black54,
-                  decoration: isDone ? TextDecoration.lineThrough : null,
+              const Icon(Icons.storefront_rounded, color: Color(0xFFFFB300), size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "PICKUP: DARK STORE HUB",
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFFFB300)),
+                    ),
+                    Text(
+                      widget.order.pickupHub,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-        ),
-        if (isDone) const Icon(Icons.check_circle, color: Colors.green, size: 18),
-      ],
+          const Padding(
+            padding: EdgeInsets.only(left: 8),
+            child: SizedBox(
+              height: 18,
+              child: VerticalDivider(color: Colors.white24, thickness: 1),
+            ),
+          ),
+          // Drop
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.location_on_rounded, color: Color(0xFF00C853), size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "DROP: CUSTOMER DOORSTEP",
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF00C853)),
+                    ),
+                    Text(
+                      widget.order.deliveryAddress,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF262838),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  "${widget.order.distanceKm} km",
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70),
+                ),
+              ),
+            ],
+          ),
+          const Divider(color: Colors.white10, height: 24),
+
+          // Customer Contact Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Customer Contact", style: TextStyle(fontSize: 10, color: Colors.white60)),
+                  Text(
+                    widget.order.customerPhone,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _callCustomer(widget.order.customerPhone),
+                    icon: const Icon(Icons.phone_rounded, size: 14, color: Color(0xFF00C853)),
+                    label: const Text("Call", style: TextStyle(color: Color(0xFF00C853), fontSize: 12, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF00C853)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _openGoogleMaps(
+                      widget.order.latitude ?? 17.4985,
+                      widget.order.longitude ?? 78.3720,
+                    ),
+                    icon: const Icon(Icons.navigation_rounded, size: 14),
+                    label: const Text("Navigate", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFC8019),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Stage 0: Reach Dark Store
+  Widget _buildStage0HeadToHub() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF191B26),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.store_mall_directory_rounded, size: 48, color: Color(0xFFFFB300)),
+          const SizedBox(height: 12),
+          const Text(
+            "Navigate to Miyapur Dark Store Hub",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            "Park at Delivery Bay #3 (Beside Pillar 84)",
+            style: TextStyle(fontSize: 12, color: Colors.white60),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                setState(() => _stage = 1);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFC8019),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.where_to_vote_rounded, size: 18),
+                  SizedBox(width: 8),
+                  Text("I HAVE REACHED DARK STORE", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Stage 1: Bag & Items Checklist
+  Widget _buildStage1BagChecklist() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF191B26),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Verify Order Items & Bag Seal",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF262838),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  "${widget.order.items.length} Items",
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70),
+                ),
+              ),
+            ],
+          ),
+          const Divider(color: Colors.white10, height: 20),
+
+          // Items with checkboxes
+          ...List.generate(widget.order.items.length, (index) {
+            final item = widget.order.items[index];
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: CheckboxListTile(
+                value: _checkedItems[index],
+                activeColor: const Color(0xFF00C853),
+                checkColor: Colors.black,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                onChanged: (val) {
+                  setState(() => _checkedItems[index] = val ?? false);
+                },
+                title: Text(
+                  item.name,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+                subtitle: Text(
+                  "${item.variant} • Qty: ${item.quantity}",
+                  style: const TextStyle(fontSize: 11, color: Colors.white60),
+                ),
+              ),
+            );
+          }),
+
+          const Divider(color: Colors.white10, height: 20),
+
+          // Tamper seal confirmation
+          CheckboxListTile(
+            value: _sealVerified,
+            activeColor: const Color(0xFFFC8019),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            onChanged: (val) => setState(() => _sealVerified = val ?? false),
+            title: const Text(
+              "Tamper-proof bag seal is intact & verified",
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFFFB380)),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _handlePickupFromHub,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C853),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.shopping_bag_rounded, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          "CONFIRM BAG PICKED UP & START RIDE",
+                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Stage 2: Live Navigation & GPS Stream
+  Widget _buildStage2LiveNavigation() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF191B26),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.two_wheeler_rounded, color: Color(0xFFFC8019), size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    "En Route to Customer",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _isSimulating ? const Color(0xFF00C853).withValues(alpha: 0.15) : const Color(0xFF262838),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(
+                      radius: 3,
+                      backgroundColor: _isSimulating ? const Color(0xFF00C853) : Colors.grey,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      _isSimulating ? "GPS Streaming Live" : "Standby",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: _isSimulating ? const Color(0xFF00C853) : Colors.white60,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Route Waypoint Progress
+          if (_routeWaypoints.isNotEmpty) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: (_currentWpIdx + 1) / _routeWaypoints.length,
+                minHeight: 6,
+                backgroundColor: const Color(0xFF262838),
+                valueColor: const AlwaysStoppedAnimation(Color(0xFFFC8019)),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "Route waypoint ${_currentWpIdx + 1} of ${_routeWaypoints.length} • Updating customer tracking map in real time",
+              style: const TextStyle(fontSize: 10, color: Colors.white60),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _toggleSimulatedRide,
+                  icon: Icon(_isSimulating ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 16),
+                  label: Text(_isSimulating ? "Pause GPS" : "Simulate Ride", style: const TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: _isSimulating ? const Color(0xFF00C853) : Colors.white24),
+                    foregroundColor: _isSimulating ? const Color(0xFF00C853) : Colors.white70,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    setState(() => _stage = 3);
+                    _showArrivalToast();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFC8019),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                  child: const Text("Arrived at Doorstep", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Stage 3: Doorstep Handover & 4-Digit Delivery PIN Verification
+  Widget _buildStage3DoorstepHandover() {
+    final isCod = widget.order.paymentMethod.toUpperCase() == "COD";
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF191B26),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF00C853).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C853).withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.shield_outlined, color: Color(0xFF00C853), size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Doorstep Delivery Verification",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                    ),
+                    Text(
+                      "Ask customer for the 4-digit Delivery PIN",
+                      style: TextStyle(fontSize: 11, color: Colors.white60),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          if (isCod) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFB300).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.3)),
+              ),
+              child: CheckboxListTile(
+                value: _cashCollected,
+                activeColor: const Color(0xFFFFB300),
+                checkColor: Colors.black,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                onChanged: (val) => setState(() => _cashCollected = val ?? false),
+                title: Text(
+                  "Collected ₹${widget.order.grandTotal.toStringAsFixed(0)} CASH from customer",
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFFFFB300)),
+                ),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 16),
+
+          // 4-Digit OTP Entry
+          TextField(
+            controller: _otpCtrl,
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 16,
+              color: Color(0xFF00C853),
+            ),
+            textAlign: TextAlign.center,
+            decoration: InputDecoration(
+              hintText: "••••",
+              hintStyle: const TextStyle(letterSpacing: 16, color: Colors.white24),
+              counterText: "",
+              filled: true,
+              fillColor: const Color(0xFF222536),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFF00C853), width: 1.5),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _isLoading
+                  ? null
+                  : () {
+                      final otp = _otpCtrl.text.trim();
+                      if (otp.length != 4) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Please enter the complete 4-digit PIN.")),
+                        );
+                        return;
+                      }
+                      if (isCod && !_cashCollected) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Please confirm cash collection first.")),
+                        );
+                        return;
+                      }
+                      _handleVerifyOtpAndComplete(otp);
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C853),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text(
+                      "VERIFY PIN & COMPLETE DELIVERY",
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                    ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

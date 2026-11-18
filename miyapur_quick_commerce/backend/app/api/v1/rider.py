@@ -102,6 +102,8 @@ def get_available_orders(db: Session = Depends(get_db)):
             "delivery_address": o.delivery_address,
             "delivery_otp": o.delivery_otp,
             "grand_total": o.grand_total,
+            "payment_method": o.payment_method or "ONLINE",
+            "payment_status": o.payment_status or "PAID",
             "payout_amount": payout,
             "scheduled_slot": o.scheduled_slot,
             "pickup_hub": "Flash Fresh Central Dark Store (Metro Pillar 84)",

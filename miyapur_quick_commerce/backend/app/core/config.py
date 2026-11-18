@@ -46,7 +46,7 @@ class Settings:
     # Verified from https://maps.app.goo.gl/5fc6a8ZMgjfttUiB9
     STORE_LATITUDE: float = float(os.getenv("STORE_LATITUDE", "17.495101"))
     STORE_LONGITUDE: float = float(os.getenv("STORE_LONGITUDE", "78.367535"))
-    MAX_DELIVERY_RADIUS_KM: float = float(os.getenv("MAX_DELIVERY_RADIUS_KM", "999.0"))
+    MAX_DELIVERY_RADIUS_KM: float = float(os.getenv("MAX_DELIVERY_RADIUS_KM", "10.0"))
     STORE_NAME: str = os.getenv("STORE_NAME", "Flash Fresh Central Dark Store")
     STORE_ADDRESS: str = os.getenv("STORE_ADDRESS", "Central Dark Store Hub, Metro Pillar 84, Hyderabad, Telangana 500049")
 

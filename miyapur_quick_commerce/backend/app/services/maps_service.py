@@ -56,20 +56,21 @@ class MapsService:
         Validates delivery serviceability dynamically across the city.
         """
         distance = cls.calculate_haversine_distance(settings.STORE_LATITUDE, settings.STORE_LONGITUDE, latitude, longitude)
+        is_serviceable = distance <= settings.MAX_DELIVERY_RADIUS_KM
         eta_minutes = max(8, int(8 + (distance * 1.5)))
         if eta_minutes > 35:
             eta_minutes = 35
 
         return {
-            "is_serviceable": True,
+            "is_serviceable": is_serviceable,
             "distance_km": distance,
-            "max_allowed_radius_km": 999.0,
+            "max_allowed_radius_km": settings.MAX_DELIVERY_RADIUS_KM,
             "estimated_delivery_minutes": eta_minutes,
             "store_name": settings.STORE_NAME,
             "store_address": settings.STORE_ADDRESS,
             "store_latitude": settings.STORE_LATITUDE,
             "store_longitude": settings.STORE_LONGITUDE,
-            "message": f"Delivery available in ~{eta_minutes} mins!"
+            "message": f"Delivery available in ~{eta_minutes} mins!" if is_serviceable else f"Delivery not available. Location is {distance:.1f} km away (max {settings.MAX_DELIVERY_RADIUS_KM:.0f} km)."
         }
 
     @classmethod
@@ -158,7 +159,7 @@ class MapsService:
             "latitude": latitude,
             "longitude": longitude,
             "distance_km": service_info["distance_km"],
-            "is_serviceable": True,
+            "is_serviceable": service_info["is_serviceable"],
             "eta_minutes": service_info["estimated_delivery_minutes"],
             "message": service_info["message"],
             "store_latitude": service_info["store_latitude"],

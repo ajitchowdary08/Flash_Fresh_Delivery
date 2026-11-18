@@ -12,6 +12,7 @@ from app.models.models import Order, OrderItem, ProductVariant, User
 from app.schemas.schemas import CreateOrderRequest
 from app.services.maps_service import maps_service
 from app.services.payment_service import payment_service
+from app.core.config import settings
 
 router = APIRouter(prefix="/orders", tags=["Orders & Real-Time Tracking"])
 
@@ -99,6 +100,11 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
             }
 
     service_info = maps_service.check_serviceability(req.latitude, req.longitude)
+    if not service_info["is_serviceable"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Delivery address exceeds our {settings.MAX_DELIVERY_RADIUS_KM} KM service boundary. Distance is {service_info['distance_km']:.1f} KM."
+        )
 
     validated_items = []
     items_total = 0.0

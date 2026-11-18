@@ -29,6 +29,9 @@ class RiderOrderModel {
   final double payoutAmount;
   final String pickupHub;
   final String customerPhone;
+  final String paymentMethod;
+  final String paymentStatus;
+  final String? deliveryOtp;
   final double? latitude;
   final double? longitude;
   final List<RiderOrderItem> items;
@@ -44,6 +47,9 @@ class RiderOrderModel {
     required this.payoutAmount,
     required this.pickupHub,
     required this.customerPhone,
+    this.paymentMethod = "ONLINE",
+    this.paymentStatus = "PAID",
+    this.deliveryOtp,
     this.latitude,
     this.longitude,
     required this.items,
@@ -60,8 +66,11 @@ class RiderOrderModel {
       deliveryAddress: json['delivery_address'] ?? 'Hyderabad',
       grandTotal: (json['grand_total'] as num?)?.toDouble() ?? 0.0,
       payoutAmount: (json['payout_amount'] as num?)?.toDouble() ?? 45.0,
-      pickupHub: json['pickup_hub'] ?? 'Flash Fresh Central Dark Store',
+      pickupHub: json['pickup_hub'] ?? 'Flash Fresh Central Dark Store (Metro Pillar 84)',
       customerPhone: json['customer_phone'] ?? '+91 98765 43210',
+      paymentMethod: json['payment_method'] ?? 'ONLINE',
+      paymentStatus: json['payment_status'] ?? 'PAID',
+      deliveryOtp: json['delivery_otp'],
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       items: rawItems.map((i) => RiderOrderItem.fromJson(i)).toList(),
