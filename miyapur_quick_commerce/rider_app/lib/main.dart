@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'screens/rider_auth_screen.dart';
 import 'screens/rider_home_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -12,23 +14,28 @@ void main() {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-  runApp(const FlashFreshRiderApp());
+
+  final prefs = await SharedPreferences.getInstance();
+  final isLoggedIn = prefs.getBool("is_rider_logged_in") ?? false;
+
+  runApp(FlashFreshRiderApp(isLoggedIn: isLoggedIn));
 }
 
 class FlashFreshRiderApp extends StatelessWidget {
-  const FlashFreshRiderApp({super.key});
+  final bool isLoggedIn;
+  const FlashFreshRiderApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Swiggy Instamart Partner | Flash Fresh',
+      title: 'Flash Fresh Partner',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF10121A),
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFFC8019), // Swiggy Orange
-          secondary: Color(0xFF00C853), // Partner Green
+          primary: Color(0xFFFC8019),
+          secondary: Color(0xFF00C853),
           surface: Color(0xFF1C1E29),
           onPrimary: Colors.white,
           onSurface: Colors.white,
@@ -49,7 +56,7 @@ class FlashFreshRiderApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const RiderHomeScreen(),
+      home: isLoggedIn ? const RiderHomeScreen() : const RiderAuthScreen(),
     );
   }
 }

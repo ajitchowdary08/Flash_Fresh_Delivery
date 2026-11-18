@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/rider_order.dart';
 import '../services/rider_api_service.dart';
@@ -49,7 +50,34 @@ class _TripScreenState extends State<TripScreen> {
     if (widget.order.status == 'OUT_FOR_DELIVERY') {
       _stage = 2;
       _fetchWaypoints();
+      _startRealGpsTracking();
     }
+  }
+
+  void _startRealGpsTracking() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
+    }
+
+    Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+      ),
+    ).listen((Position position) {
+      if (mounted) {
+        RiderApiService.updateLocation(
+          widget.order.orderId,
+          position.latitude,
+          position.longitude,
+        );
+      }
+    });
   }
 
   @override

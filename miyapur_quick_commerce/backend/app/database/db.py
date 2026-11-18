@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import settings
-from app.models.models import Base, Category, Product, ProductVariant
+from app.models.models import Base, Category, Product, ProductVariant, Rider, PromoCode
 
 connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
@@ -134,6 +134,28 @@ def init_db():
         sync_prod(cat_fish.id, "Fresh Godavari Rohu Fish (Curry Cut)", "Fresh river fish, descaled and cut with head pieces.", "https://ik.imagekit.io/Ganapathi/flash_fresh_fresh_godavari_rohu_fish_curry_cut_600x600.jpg", True, [("500g", 220.0, 185.0, 30), ("1kg", 420.0, 360.0, 25)])
         sync_prod(cat_fish.id, "Live Cleaned Sea Prawns (Medium)", "Deveined, peeled, juicy prawns.", "https://ik.imagekit.io/Ganapathi/flash_fresh_live_cleaned_sea_prawns_medium_600x600.jpg", True, [("250g", 230.0, 199.0, 20), ("500g", 440.0, 380.0, 15)])
         sync_prod(cat_fish.id, "Fresh Tender Mutton Curry Cut", "Fresh tender goat meat, cut with bone for rich gravy.", "https://ik.imagekit.io/Ganapathi/flash_fresh_fresh_tender_mutton_curry_cut_600x600.jpg", True, [("500g", 480.0, 420.0, 25), ("1kg", 950.0, 830.0, 15)])
+
+        # Seed Active Fleet Partners into DB if empty
+        if db.query(Rider).count() == 0:
+            riders_data = [
+                {"id": "rdr_ravi_01", "phone": "+91 98480 12345", "name": "Ravi Kumar", "vehicle": "Hero Electric (TS 07 EK 4921)"},
+                {"id": "rdr_suresh_02", "phone": "+91 98765 24680", "name": "Suresh Goud", "vehicle": "Ather 450X (TS 08 FA 1024)"},
+                {"id": "rdr_naresh_03", "phone": "+91 91234 56789", "name": "Naresh Krishna", "vehicle": "Ola S1 Pro (TS 07 AB 9988)"},
+            ]
+            for r in riders_data:
+                db.add(Rider(**r))
+            db.commit()
+
+        # Seed Active Promo Coupons into DB if empty
+        if db.query(PromoCode).count() == 0:
+            promos_data = [
+                {"code": "ZEPTO50", "discount_percent": 20.0, "max_discount": 50.0, "min_order": 149.0, "description": "Flat 20% OFF up to ₹50 on orders above ₹149"},
+                {"code": "FLASH100", "discount_percent": 25.0, "max_discount": 100.0, "min_order": 299.0, "description": "Flat 25% OFF up to ₹100 on Flash Mega Orders above ₹299"},
+                {"code": "SUNDAYMEAT", "discount_percent": 15.0, "max_discount": 75.0, "min_order": 199.0, "description": "Special 15% OFF on Sunday Fresh Meat & Seafood"},
+            ]
+            for p in promos_data:
+                db.add(PromoCode(**p))
+            db.commit()
 
     finally:
         db.close()

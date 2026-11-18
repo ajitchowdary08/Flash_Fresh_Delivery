@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.database.db import get_db
-from app.models.models import Category, Product
+from app.models.models import Category, Product, PromoCode
 from app.schemas.schemas import PromoCodeValidateRequest
 
 router = APIRouter(prefix="/catalog", tags=["Catalog & Sunday Meat Engine"])
@@ -120,37 +120,45 @@ def search_products(query: str = "", db: Session = Depends(get_db)):
     return result
 
 @router.post("/promos/validate")
-def validate_promo_code(req: PromoCodeValidateRequest):
+def validate_promo_code(req: PromoCodeValidateRequest, db: Session = Depends(get_db)):
     """
-    Validates promo coupon code and calculates exact discount amount.
+    Validates promo coupon code and calculates exact discount amount directly from DB.
     """
     code = req.code.strip().upper()
-    if code not in PROMO_CODES:
+    promo = db.query(PromoCode).filter(PromoCode.code == code, PromoCode.is_active == True).first()
+    if not promo:
         raise HTTPException(status_code=400, detail="Invalid promo code. Please enter a valid coupon (e.g. ZEPTO50, FLASH100).")
 
-    promo = PROMO_CODES[code]
-    if req.items_total < promo["min_order"]:
+    if req.items_total < promo.min_order:
         raise HTTPException(
             status_code=400,
-            detail=f"Coupon '{code}' requires a minimum item total of ₹{promo['min_order']:.0f}. Add ₹{(promo['min_order'] - req.items_total):.0f} more to apply."
+            detail=f"Coupon '{code}' requires a minimum item total of ₹{promo.min_order:.0f}. Add ₹{(promo.min_order - req.items_total):.0f} more to apply."
         )
 
-    calc_disc = (req.items_total * promo["discount_percent"]) / 100.0
-    discount_amount = min(calc_disc, promo["max_discount"])
+    calc_disc = (req.items_total * promo.discount_percent) / 100.0
+    discount_amount = min(calc_disc, promo.max_discount)
 
     return {
         "success": True,
         "code": code,
         "discount_amount": discount_amount,
-        "description": promo["description"],
+        "description": promo.description,
         "message": f"Coupon '{code}' applied! Saved ₹{discount_amount:.0f} on your order."
     }
 
 @router.get("/promos/active")
-def get_active_promos():
+def get_active_promos(db: Session = Depends(get_db)):
     """
-    Returns list of active coupons for customer checkout banner.
+    Returns list of active coupons from the SQL database for customer checkout banner.
     """
+    promos = db.query(PromoCode).filter(PromoCode.is_active == True).all()
     return [
-        {"code": k, **v} for k, v in PROMO_CODES.items()
+        {
+            "code": p.code,
+            "discount_percent": p.discount_percent,
+            "max_discount": p.max_discount,
+            "min_order": p.min_order,
+            "description": p.description
+        }
+        for p in promos
     ]

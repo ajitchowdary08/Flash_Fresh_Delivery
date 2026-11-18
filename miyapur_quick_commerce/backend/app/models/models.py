@@ -139,3 +139,43 @@ class OrderItem(Base):
     total_price = Column(Float, nullable=False)
 
     order = relationship("Order", back_populates="items")
+
+class Rider(Base):
+    __tablename__ = "riders"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    phone = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    vehicle = Column(String, default="Hero Electric (TS 07 EK 4921)")
+    rating = Column(Float, default=4.9)
+    is_online = Column(Boolean, default=True)
+    today_earnings = Column(Float, default=0.0)
+    completed_trips_today = Column(Integer, default=0)
+    current_lat = Column(Float, default=17.495101)
+    current_lng = Column(Float, default=78.367535)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class PromoCode(Base):
+    __tablename__ = "promo_codes"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    code = Column(String, unique=True, index=True, nullable=False)
+    discount_percent = Column(Float, default=20.0)
+    max_discount = Column(Float, default=50.0)
+    min_order = Column(Float, default=149.0)
+    description = Column(String, default="")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    ticket_number = Column(String, unique=True, index=True)
+    user_id = Column(String, ForeignKey("users.id"))
+    order_id = Column(String, nullable=True)
+    category = Column(String, default="General Inquiry")
+    subject = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    status = Column(String, default="OPEN") # OPEN, IN_PROGRESS, RESOLVED
+    created_at = Column(DateTime, default=datetime.utcnow)

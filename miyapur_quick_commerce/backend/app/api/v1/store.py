@@ -5,8 +5,9 @@ from typing import List, Dict, Any, Optional
 import uuid
 
 from app.database.db import get_db
-from app.models.models import Order, Product, ProductVariant, Category
+from app.models.models import Order, Product, ProductVariant, Category, Rider
 from app.api.v1.orders import ws_manager
+from app.core.security import get_current_store_manager
 
 router = APIRouter(prefix="/store", tags=["Dark Store Hub Operations"])
 
@@ -186,11 +187,23 @@ class RecordMeatWeightRequest(BaseModel):
 
 
 @router.get("/riders/active")
-def get_active_riders():
+def get_active_riders(db: Session = Depends(get_db)):
     """
-    Returns fleet partners available around the Central Dark Store Hub.
+    Returns active fleet partners directly from the SQL database.
     """
-    return ACTIVE_RIDERS
+    riders = db.query(Rider).filter(Rider.is_online == True).all()
+    res = []
+    for r in riders:
+        res.append({
+            "id": r.id,
+            "name": r.name,
+            "phone": r.phone,
+            "vehicle": r.vehicle,
+            "rating": r.rating,
+            "status": "AVAILABLE",
+            "distance": "0.2 km from Hub",
+        })
+    return res
 
 
 @router.post("/orders/{order_id}/assign-rider")
@@ -206,15 +219,25 @@ async def assign_rider_to_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    rider = next((r for r in ACTIVE_RIDERS if r["id"] == req.rider_id), ACTIVE_RIDERS[0])
+    rider = db.query(Rider).filter(Rider.id == req.rider_id).first()
+    if not rider:
+        rider = db.query(Rider).first()
+
+    rider_info = {
+        "id": rider.id if rider else "rdr_ravi_01",
+        "name": rider.name if rider else "Ravi Kumar",
+        "phone": rider.phone if rider else "+91 98480 12345",
+        "vehicle": rider.vehicle if rider else "Hero Electric (TS 07 EK 4921)",
+        "rating": rider.rating if rider else 4.9,
+    }
 
     order.status = "OUT_FOR_DELIVERY"
-    order.rider_id = rider["id"]
-    order.rider_name = rider["name"]
-    order.rider_phone = rider["phone"]
-    order.rider_vehicle = rider["vehicle"]
-    order.rider_lat = 17.495101
-    order.rider_lng = 78.367535
+    order.rider_id = rider_info["id"]
+    order.rider_name = rider_info["name"]
+    order.rider_phone = rider_info["phone"]
+    order.rider_vehicle = rider_info["vehicle"]
+    order.rider_lat = rider.current_lat if rider else 17.495101
+    order.rider_lng = rider.current_lng if rider else 78.367535
 
     db.commit()
     db.refresh(order)
@@ -223,8 +246,8 @@ async def assign_rider_to_order(
     await ws_manager.broadcast_order_update(order.id, {
         "event": "STATUS_UPDATE",
         "status": "OUT_FOR_DELIVERY",
-        "message": f"Rider {rider['name']} ({rider['vehicle']}) has picked up your order!",
-        "rider": rider,
+        "message": f"Rider {rider_info['name']} ({rider_info['vehicle']}) has picked up your order!",
+        "rider": rider_info,
     })
 
     return {
@@ -232,8 +255,8 @@ async def assign_rider_to_order(
         "order_id": order.id,
         "order_number": order.order_number,
         "status": order.status,
-        "rider": rider,
-        "message": f"Assigned {rider['name']}! Order is now Out for Delivery.",
+        "rider": rider_info,
+        "message": f"Assigned {rider_info['name']}! Order is now Out for Delivery.",
     }
 
 

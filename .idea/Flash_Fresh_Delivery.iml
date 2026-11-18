@@ -9,6 +9,9 @@
       <excludeFolder url="file://$MODULE_DIR$/miyapur_quick_commerce/rider_app/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/miyapur_quick_commerce/rider_app/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/miyapur_quick_commerce/rider_app/build" />
+      <excludeFolder url="file://$MODULE_DIR$/miyapur_quick_commerce/store_app/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/miyapur_quick_commerce/store_app/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/miyapur_quick_commerce/store_app/build" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
