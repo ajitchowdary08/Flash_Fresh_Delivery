@@ -37,7 +37,7 @@ def init_db():
         cat_chicken = get_or_create_cat("Sunday Fresh Chicken", "chicken", "egg", 7)
         cat_fish = get_or_create_cat("Sunday Fresh Fish & Seafood", "seafood", "water", 8)
 
-        # Force sync existing products with updated image URLs and variants
+        # Seed initial catalog products without overwriting admin price/stock edits on server restart
         def sync_prod(cat_id, name, desc, img, is_sunday, variants_data):
             p = db.query(Product).filter(Product.name == name).first()
             if not p:
@@ -46,27 +46,33 @@ def init_db():
                     name=name,
                     description=desc,
                     image_url=img,
-                    is_sunday_only=is_sunday
+                    is_sunday_only=is_sunday,
+                    is_active=True
                 )
                 db.add(p)
                 db.commit()
                 db.refresh(p)
-            else:
-                p.category_id = cat_id
-                p.description = desc
-                p.image_url = img
-                p.is_sunday_only = is_sunday
+
+                # Create initial default variants for brand-new products
+                p.variants = [
+                    ProductVariant(weight_label=v[0], mrp=v[1], price=v[2], stock_qty=v[3])
+                    for v in variants_data
+                ]
                 db.commit()
-
-            # Refresh variants
-            db.query(ProductVariant).filter(ProductVariant.product_id == p.id).delete()
-            db.commit()
-
-            p.variants = [
-                ProductVariant(weight_label=v[0], mrp=v[1], price=v[2], stock_qty=v[3])
-                for v in variants_data
-            ]
-            db.commit()
+            else:
+                # Product already exists! DO NOT overwrite admin prices or delete variants!
+                # Only populate variants if the product has none in DB
+                existing_variants = db.query(ProductVariant).filter(ProductVariant.product_id == p.id).all()
+                if not existing_variants:
+                    p.variants = [
+                        ProductVariant(weight_label=v[0], mrp=v[1], price=v[2], stock_qty=v[3])
+                        for v in variants_data
+                    ]
+                    db.commit()
+                # Update image if missing
+                if not p.image_url and img:
+                    p.image_url = img
+                    db.commit()
 
         # Delete any removed egg products (Country Eggs, Brown Eggs)
         db.query(Product).filter(Product.name.like("%Country Eggs%")).delete(synchronize_session=False)
