@@ -1683,47 +1683,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderRadius: 20,
                         borderColor: Colors.grey.shade200,
                         margin: const EdgeInsets.only(bottom: 20),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                          leading: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF059669).withOpacity(0.12),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.support_agent_rounded,
-                              color: Color(0xFF059669),
-                              size: 24,
-                            ),
-                          ),
-                          title: const Text(
-                            "24x7 Help & Support",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                          subtitle: const Text(
-                            "Raise ticket, FAQs, WhatsApp & Instant Callback",
-                            style: TextStyle(fontSize: 11, color: Colors.black54),
-                          ),
-                          trailing: const Icon(
-                            Icons.chevron_right_rounded,
-                            color: Colors.black45,
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => HelpSupportScreen(
-                                  userId: widget.userId,
-                                  phone: widget.phone,
-                                ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                            leading: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF059669).withOpacity(0.12),
+                                shape: BoxShape.circle,
                               ),
-                            );
-                          },
+                              child: const Icon(
+                                Icons.support_agent_rounded,
+                                color: Color(0xFF059669),
+                                size: 24,
+                              ),
+                            ),
+                            title: const Text(
+                              "24x7 Help & Support",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                            subtitle: const Text(
+                              "Raise ticket, FAQs, WhatsApp & Instant Callback",
+                              style: TextStyle(fontSize: 11, color: Colors.black54),
+                            ),
+                            trailing: const Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.black45,
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => HelpSupportScreen(
+                                    userId: widget.userId,
+                                    phone: widget.phone,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
 
