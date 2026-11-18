@@ -180,7 +180,7 @@ class ProductModel {
 
 class CartItemModel {
   final ProductModel product;
-  final ProductVariantModel selectedVariant;
+  ProductVariantModel selectedVariant;
   int quantity;
 
   CartItemModel({

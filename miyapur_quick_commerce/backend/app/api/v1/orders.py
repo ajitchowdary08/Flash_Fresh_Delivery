@@ -8,7 +8,7 @@ from typing import Dict, List
 from pydantic import BaseModel
 
 from app.database.db import get_db
-from app.models.models import Order, OrderItem, ProductVariant, User
+from app.models.models import Order, OrderItem, Product, ProductVariant, User, PromoCode
 from app.schemas.schemas import CreateOrderRequest
 from app.services.maps_service import maps_service
 from app.services.payment_service import payment_service
@@ -110,9 +110,15 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
     items_total = 0.0
 
     for itm in req.items:
-        variant = db.query(ProductVariant).filter(
-            ProductVariant.weight_label == itm.variant_label
-        ).first()
+        # DB authoritative variant lookup (flexible space/case matching)
+        clean_v_label = itm.variant_label.replace(" ", "").lower()
+        all_variants = db.query(ProductVariant).all()
+        variant = next((v for v in all_variants if v.weight_label.replace(" ", "").lower() == clean_v_label), None)
+
+        if not variant:
+            prod = db.query(Product).filter(Product.name.ilike(f"%{itm.product_name.split('(')[0].strip()}%")).first()
+            if prod and prod.variants:
+                variant = prod.variants[0]
 
         unit_price = variant.price if variant else itm.unit_price
 
@@ -136,15 +142,16 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
             "total_price": total_price
         })
 
-    # Calculate discount
+    # Calculate discount from DB PromoCode table
     discount_amount = 0.0
     promo_code_applied = ""
-    if req.promo_code and req.promo_code.upper() in PROMO_CODES:
-        promo = PROMO_CODES[req.promo_code.upper()]
-        if items_total >= promo["min_order"]:
-            calc_disc = (items_total * promo["discount_percent"]) / 100.0
-            discount_amount = min(calc_disc, promo["max_discount"])
-            promo_code_applied = req.promo_code.upper()
+    if req.promo_code:
+        code_upper = req.promo_code.strip().upper()
+        promo = db.query(PromoCode).filter(PromoCode.code == code_upper, PromoCode.is_active == True).first()
+        if promo and items_total >= promo.min_order:
+            calc_disc = (items_total * promo.discount_percent) / 100.0
+            discount_amount = min(calc_disc, promo.max_discount)
+            promo_code_applied = code_upper
 
     net_items_total = max(0.0, items_total - discount_amount)
     delivery_fee = 0.0 if net_items_total >= 199.0 else 15.0
@@ -170,19 +177,36 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
             user.current_monthly_dues = (user.current_monthly_dues or 0.0) + grand_total
         payment_status = "POSTPAID_TAB"
 
+    # Ensure user exists in database to prevent Foreign Key Violation (500 Error)
+    clean_phone = req.user_id.replace("usr_", "").replace("+91", "").strip()
+    user = db.query(User).filter(
+        (User.id == req.user_id) | (User.phone == clean_phone) | (User.phone == req.user_id)
+    ).first()
+
+    if not user:
+        user = User(
+            id=req.user_id if req.user_id.startswith("usr_") else f"usr_{clean_phone}",
+            phone=clean_phone if clean_phone else "9966114243",
+            name="Valued Customer",
+            email=""
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
     order_number = f"MYP-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
     delivery_otp = str(random.randint(1000, 9999))
 
     new_order = Order(
         id=str(uuid.uuid4()),
         order_number=order_number,
-        user_id=req.user_id,
+        user_id=user.id,
         delivery_address=req.delivery_address,
         latitude=req.latitude,
         longitude=req.longitude,
-        distance_km=service_info["distance_km"],
+        distance_km=service_info.get("distance_km", 0.8),
         status="PLACED",
-        delivery_eta_mins=service_info["estimated_delivery_minutes"] or 15,
+        delivery_eta_mins=service_info.get("estimated_delivery_minutes", 15),
         items_total=items_total,
         discount_amount=discount_amount,
         promo_code=promo_code_applied,

@@ -72,7 +72,7 @@ def get_packing_queue(db: Session = Depends(get_db)):
     return result
 
 @router.post("/orders/{order_id}/mark-packed")
-def mark_order_packed(order_id: str, db: Session = Depends(get_db)):
+def mark_order_packed(order_id: str, db: Session = Depends(get_db), manager: Dict = Depends(get_current_store_manager)):
     """
     Store boy finishes weighing and bagging, marks order as PACKED.
     """
@@ -122,7 +122,7 @@ def get_store_inventory(db: Session = Depends(get_db)):
     return inventory_list
 
 @router.post("/inventory/update-stock")
-def update_stock(req: StockUpdateRequest, db: Session = Depends(get_db)):
+def update_stock(req: StockUpdateRequest, db: Session = Depends(get_db), manager: Dict = Depends(get_current_store_manager)):
     """
     Updates stock quantity for a variant (e.g. morning veggie intake).
     """
@@ -265,6 +265,7 @@ def record_meat_weight(
     order_id: str,
     req: RecordMeatWeightRequest,
     db: Session = Depends(get_db),
+    manager: Dict = Depends(get_current_store_manager),
 ):
     """
     Records verified meat weight, cutting style, and cleaning wash before bagging.
@@ -324,7 +325,7 @@ def get_all_categories(db: Session = Depends(get_db)):
 
 
 @router.post("/catalog/add-product")
-def add_product(req: AddProductRequest, db: Session = Depends(get_db)):
+def add_product(req: AddProductRequest, db: Session = Depends(get_db), manager: Dict = Depends(get_current_store_manager)):
     """Admin: Add a new product + at least one variant to the catalog."""
     category = db.query(Category).filter(Category.id == req.category_id).first()
     if not category:
@@ -370,7 +371,7 @@ def add_product(req: AddProductRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/catalog/delete-product")
-def deactivate_product(req: DeleteProductRequest, db: Session = Depends(get_db)):
+def deactivate_product(req: DeleteProductRequest, db: Session = Depends(get_db), manager: Dict = Depends(get_current_store_manager)):
     """Admin: Soft-deactivate a product (sets is_active=False)."""
     product = db.query(Product).filter(Product.id == req.product_id).first()
     if not product:
@@ -403,7 +404,7 @@ class UpdateProductDetailRequest(BaseModel):
 
 
 @router.post("/inventory/update-product-detail")
-def update_product_detail(req: UpdateProductDetailRequest, db: Session = Depends(get_db)):
+def update_product_detail(req: UpdateProductDetailRequest, db: Session = Depends(get_db), manager: Dict = Depends(get_current_store_manager)):
     """
     Admin inline edit: update product name, weight label, selling price, and stock qty.
     All four fields are saved in a single call from the inventory table row.

@@ -149,7 +149,7 @@ def get_rider_reviews(db: Session = Depends(get_db)):
     }
 
 @router.post("/duty")
-def toggle_duty(update: RiderDutyUpdate):
+def toggle_duty(update: RiderDutyUpdate, rider: Dict = Depends(get_current_rider)):
     """
     Toggle rider online/offline duty.
     """
@@ -201,7 +201,7 @@ def get_available_orders(db: Session = Depends(get_db)):
     return res
 
 @router.post("/orders/{order_id}/accept")
-async def accept_order(order_id: str, db: Session = Depends(get_db)):
+async def accept_order(order_id: str, db: Session = Depends(get_db), rider: Dict = Depends(get_current_rider)):
     """
     Rider accepts order atomically to prevent double claiming.
     """
@@ -240,7 +240,7 @@ async def accept_order(order_id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/orders/{order_id}/pickup")
-async def pickup_order(order_id: str, db: Session = Depends(get_db)):
+async def pickup_order(order_id: str, db: Session = Depends(get_db), rider: Dict = Depends(get_current_rider)):
     """
     Rider collects packed bag from Central Hub and departs.
     """
@@ -267,7 +267,7 @@ async def pickup_order(order_id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/location/update")
-async def update_rider_location(req: RiderLocationUpdate, db: Session = Depends(get_db)):
+async def update_rider_location(req: RiderLocationUpdate, db: Session = Depends(get_db), rider: Dict = Depends(get_current_rider)):
     """
     Updates rider live GPS coordinates and broadcasts to customer's live tracking map.
     """
@@ -293,7 +293,7 @@ async def update_rider_location(req: RiderLocationUpdate, db: Session = Depends(
     return {"success": True, "order_id": order.id, "lat": req.latitude, "lng": req.longitude}
 
 @router.post("/orders/verify-delivery")
-async def verify_delivery_otp(req: VerifyDeliveryOTPRequest, db: Session = Depends(get_db)):
+async def verify_delivery_otp(req: VerifyDeliveryOTPRequest, db: Session = Depends(get_db), rider: Dict = Depends(get_current_rider)):
     """
     Rider enters customer's 4-digit Delivery PIN code at doorstep.
     """

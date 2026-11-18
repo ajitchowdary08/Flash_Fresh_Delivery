@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -626,10 +627,33 @@ class _CartScreenState extends State<CartScreen> {
 
     setState(() => _isPlacingOrder = true);
 
+    // Pre-checkout price re-verification from database
+    final catalogRes = await ApiService.getProducts();
+    final liveProducts = catalogRes['products'] as List<ProductModel>? ?? [];
+
+    if (liveProducts.isNotEmpty) {
+      for (var cartItem in widget.cartItems) {
+        final liveProd = liveProducts.firstWhere(
+          (p) => p.id == cartItem.product.id || p.name == cartItem.product.name,
+          orElse: () => cartItem.product,
+        );
+
+        final liveVar = liveProd.variants.firstWhere(
+          (v) => v.weightLabel.replaceAll(' ', '').toLowerCase() == cartItem.selectedVariant.weightLabel.replaceAll(' ', '').toLowerCase(),
+          orElse: () => cartItem.selectedVariant,
+        );
+
+        cartItem.selectedVariant = liveVar;
+      }
+    }
+
     bool hasMeat = widget.cartItems.any((i) => i.product.isSundayOnly);
 
+    final prefs = await SharedPreferences.getInstance();
+    final savedUserId = prefs.getString("user_id") ?? widget.userId ?? "usr_9966114243";
+
     final orderRes = await ApiService.createOrder(
-      userId: widget.userId ?? "usr_local_mock",
+      userId: savedUserId,
       deliveryAddress: "${_activeLocation.name}, ${_activeLocation.address}",
       latitude: _activeLocation.latitude,
       longitude: _activeLocation.longitude,
