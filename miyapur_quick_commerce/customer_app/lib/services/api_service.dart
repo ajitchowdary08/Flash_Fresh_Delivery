@@ -171,12 +171,19 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final profile = UserProfileModel.fromJson(jsonDecode(response.body));
-        final resolvedName = (profile.name.isNotEmpty && !profile.name.startsWith("Customer ("))
+        final resolvedName =
+            (profile.name.isNotEmpty && !profile.name.startsWith("Customer ("))
             ? profile.name
-            : ((savedName != null && savedName.isNotEmpty && savedName != "Customer")
-                ? savedName
-                : (profile.name.isNotEmpty ? profile.name : "Valued Customer"));
-        final resolvedEmail = profile.email.isNotEmpty ? profile.email : savedEmail;
+            : ((savedName != null &&
+                      savedName.isNotEmpty &&
+                      savedName != "Customer")
+                  ? savedName
+                  : (profile.name.isNotEmpty
+                        ? profile.name
+                        : "Valued Customer"));
+        final resolvedEmail = profile.email.isNotEmpty
+            ? profile.email
+            : savedEmail;
 
         if (resolvedName.isNotEmpty && resolvedName != "Valued Customer") {
           await prefs.setString("user_name", resolvedName);
@@ -264,12 +271,17 @@ class ApiService {
             .toList();
 
         final existingKeys = apiAddrs
-            .map((a) => "${a.label.toLowerCase()}_${a.houseNumber.toLowerCase().replaceAll(' ', '')}_${a.streetAddress.toLowerCase().replaceAll(' ', '')}")
+            .map(
+              (a) =>
+                  "${a.label.toLowerCase()}_${a.houseNumber.toLowerCase().replaceAll(' ', '')}_${a.streetAddress.toLowerCase().replaceAll(' ', '')}",
+            )
             .toSet();
 
         for (var locAddr in localAddrs) {
-          final locKey = "${locAddr.label.toLowerCase()}_${locAddr.houseNumber.toLowerCase().replaceAll(' ', '')}_${locAddr.streetAddress.toLowerCase().replaceAll(' ', '')}";
-          if (!apiAddrs.any((a) => a.id == locAddr.id) && !existingKeys.contains(locKey)) {
+          final locKey =
+              "${locAddr.label.toLowerCase()}_${locAddr.houseNumber.toLowerCase().replaceAll(' ', '')}_${locAddr.streetAddress.toLowerCase().replaceAll(' ', '')}";
+          if (!apiAddrs.any((a) => a.id == locAddr.id) &&
+              !existingKeys.contains(locKey)) {
             apiAddrs.add(locAddr);
             existingKeys.add(locKey);
           }
@@ -280,13 +292,17 @@ class ApiService {
 
     final uniqueLocal = <String, SavedAddressModel>{};
     for (var a in localAddrs) {
-      final key = "${a.label.toLowerCase()}_${a.houseNumber.toLowerCase().replaceAll(' ', '')}_${a.streetAddress.toLowerCase().replaceAll(' ', '')}";
+      final key =
+          "${a.label.toLowerCase()}_${a.houseNumber.toLowerCase().replaceAll(' ', '')}_${a.streetAddress.toLowerCase().replaceAll(' ', '')}";
       uniqueLocal[key] = a;
     }
     return uniqueLocal.values.toList();
   }
 
-  static Future<bool> deleteSavedAddress(String userId, String addressId) async {
+  static Future<bool> deleteSavedAddress(
+    String userId,
+    String addressId,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final rawLocalAddrs = prefs.getStringList("saved_addrs_$userId") ?? [];
     final globalAddrs = prefs.getStringList("global_saved_addrs") ?? [];
@@ -538,7 +554,10 @@ class ApiService {
         .toList();
   }
 
-  static Future<List<LocationModel>> getNearbyLocations({double? lat, double? lng}) async {
+  static Future<List<LocationModel>> getNearbyLocations({
+    double? lat,
+    double? lng,
+  }) async {
     try {
       String url = "$baseUrl/maps/nearby";
       if (lat != null && lng != null) {
@@ -574,24 +593,12 @@ class ApiService {
     return _localServiceability(lat, lng);
   }
 
-  static double _calcDistanceKm(double lat1, double lon1, double lat2, double lon2) {
-    const R = 6371.0;
-    double dLat = _rad(lat2 - lat1);
-    double dLng = _rad(lon2 - lon1);
-    double a = (math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_rad(lat1)) *
-            math.cos(_rad(lat2)) *
-            math.sin(dLng / 2) *
-            math.sin(dLng / 2));
-    double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return double.parse((R * c).toStringAsFixed(2));
-  }
-
   static Map<String, String> _resolveNearestArea(double lat, double lng) {
     return {
       "name": "Selected Location",
-      "address": "Location at ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}, Hyderabad, Telangana 500049, India",
-      "landmark": "Hyderabad"
+      "address":
+          "Location at ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}, Hyderabad, Telangana 500049, India",
+      "landmark": "Hyderabad",
     };
   }
 
@@ -707,7 +714,7 @@ class ApiService {
       String dayParam = forceSunday ? "sunday" : "weekday";
       final response = await http
           .get(Uri.parse("$baseUrl/catalog/products?day_override=$dayParam"))
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         var body = jsonDecode(response.body);
@@ -1051,13 +1058,13 @@ class ApiService {
           "faqs": [
             {
               "question": "How fast will my order arrive?",
-              "answer": "Orders are packed at Central Dark Store within 3 minutes and delivered to your doorstep within 10-15 minutes by our dedicated rider fleet."
+              "answer": "Orders are packed at Central Dark Store within 3 minutes and delivered to your doorstep within 10-15 minutes by our dedicated rider fleet.",
             },
             {
               "question": "How do I give the delivery PIN to the rider?",
-              "answer": "When your rider arrives, share the 4-digit PIN displayed on your live order tracking screen to complete the handover securely."
+              "answer": "When your rider arrives, share the 4-digit PIN displayed on your live order tracking screen to complete the handover securely.",
             },
-          ]
+          ],
         },
         {
           "id": "payments",
@@ -1065,11 +1072,11 @@ class ApiService {
           "faqs": [
             {
               "question": "How do refunds work for cancelled orders?",
-              "answer": "Instant refunds for UPI, Cards, NetBanking, or Wallet payments are credited back to your payment source within 2-4 hours."
+              "answer": "Instant refunds for UPI, Cards, NetBanking, or Wallet payments are credited back to your payment source within 2-4 hours.",
             },
-          ]
-        }
-      ]
+          ],
+        },
+      ],
     };
   }
 
@@ -1101,11 +1108,13 @@ class ApiService {
       }
     } catch (_) {}
 
-    final ticketId = "TKT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}";
+    final ticketId =
+        "TKT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}";
     return {
       "success": true,
       "ticket_id": ticketId,
-      "message": "Ticket #$ticketId submitted! Our Support Executive will call you back in 5 minutes.",
+      "message":
+          "Ticket #$ticketId submitted! Our Support Executive will call you back in 5 minutes.",
     };
   }
 
@@ -1122,8 +1131,20 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v1", weightLabel: "500g", mrp: 25.0, price: 18.0, stockQty: 100),
-          ProductVariantModel(id: "v2", weightLabel: "1kg", mrp: 50.0, price: 34.0, stockQty: 80),
+          ProductVariantModel(
+            id: "v1",
+            weightLabel: "500g",
+            mrp: 25.0,
+            price: 18.0,
+            stockQty: 100,
+          ),
+          ProductVariantModel(
+            id: "v2",
+            weightLabel: "1kg",
+            mrp: 50.0,
+            price: 34.0,
+            stockQty: 80,
+          ),
         ],
       ),
       ProductModel(
@@ -1136,8 +1157,20 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v3", weightLabel: "1kg", mrp: 45.0, price: 36.0, stockQty: 120),
-          ProductVariantModel(id: "v4", weightLabel: "2kg (Saver Pack)", mrp: 90.0, price: 68.0, stockQty: 50),
+          ProductVariantModel(
+            id: "v3",
+            weightLabel: "1kg",
+            mrp: 45.0,
+            price: 36.0,
+            stockQty: 120,
+          ),
+          ProductVariantModel(
+            id: "v4",
+            weightLabel: "2kg (Saver Pack)",
+            mrp: 90.0,
+            price: 68.0,
+            stockQty: 50,
+          ),
         ],
       ),
       ProductModel(
@@ -1150,8 +1183,20 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v3_a", weightLabel: "1kg", mrp: 40.0, price: 32.0, stockQty: 150),
-          ProductVariantModel(id: "v3_b", weightLabel: "2kg", mrp: 80.0, price: 60.0, stockQty: 70),
+          ProductVariantModel(
+            id: "v3_a",
+            weightLabel: "1kg",
+            mrp: 40.0,
+            price: 32.0,
+            stockQty: 150,
+          ),
+          ProductVariantModel(
+            id: "v3_b",
+            weightLabel: "2kg",
+            mrp: 80.0,
+            price: 60.0,
+            stockQty: 70,
+          ),
         ],
       ),
       ProductModel(
@@ -1164,8 +1209,20 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v5", weightLabel: "250g", mrp: 20.0, price: 15.0, stockQty: 60),
-          ProductVariantModel(id: "v6", weightLabel: "500g", mrp: 40.0, price: 28.0, stockQty: 40),
+          ProductVariantModel(
+            id: "v5",
+            weightLabel: "250g",
+            mrp: 20.0,
+            price: 15.0,
+            stockQty: 60,
+          ),
+          ProductVariantModel(
+            id: "v6",
+            weightLabel: "500g",
+            mrp: 40.0,
+            price: 28.0,
+            stockQty: 40,
+          ),
         ],
       ),
       ProductModel(
@@ -1178,7 +1235,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v5_a", weightLabel: "500g", mrp: 35.0, price: 26.0, stockQty: 70),
+          ProductVariantModel(
+            id: "v5_a",
+            weightLabel: "500g",
+            mrp: 35.0,
+            price: 26.0,
+            stockQty: 70,
+          ),
         ],
       ),
       ProductModel(
@@ -1191,7 +1254,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v6_a", weightLabel: "1 Unit (600g)", mrp: 30.0, price: 22.0, stockQty: 50),
+          ProductVariantModel(
+            id: "v6_a",
+            weightLabel: "1 Unit (600g)",
+            mrp: 30.0,
+            price: 22.0,
+            stockQty: 50,
+          ),
         ],
       ),
       ProductModel(
@@ -1204,7 +1273,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v7_a", weightLabel: "250g", mrp: 25.0, price: 19.0, stockQty: 80),
+          ProductVariantModel(
+            id: "v7_a",
+            weightLabel: "250g",
+            mrp: 25.0,
+            price: 19.0,
+            stockQty: 80,
+          ),
         ],
       ),
       ProductModel(
@@ -1217,7 +1292,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v8_v", weightLabel: "500g", mrp: 30.0, price: 22.0, stockQty: 65),
+          ProductVariantModel(
+            id: "v8_v",
+            weightLabel: "500g",
+            mrp: 30.0,
+            price: 22.0,
+            stockQty: 65,
+          ),
         ],
       ),
       ProductModel(
@@ -1230,8 +1311,20 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v9_v1", weightLabel: "250g", mrp: 35.0, price: 26.0, stockQty: 90),
-          ProductVariantModel(id: "v9_v2", weightLabel: "500g", mrp: 70.0, price: 48.0, stockQty: 50),
+          ProductVariantModel(
+            id: "v9_v1",
+            weightLabel: "250g",
+            mrp: 35.0,
+            price: 26.0,
+            stockQty: 90,
+          ),
+          ProductVariantModel(
+            id: "v9_v2",
+            weightLabel: "500g",
+            mrp: 70.0,
+            price: 48.0,
+            stockQty: 50,
+          ),
         ],
       ),
       ProductModel(
@@ -1244,7 +1337,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v10_v1", weightLabel: "250g", mrp: 22.0, price: 16.0, stockQty: 75),
+          ProductVariantModel(
+            id: "v10_v1",
+            weightLabel: "250g",
+            mrp: 22.0,
+            price: 16.0,
+            stockQty: 75,
+          ),
         ],
       ),
       ProductModel(
@@ -1257,7 +1356,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v11_fb", weightLabel: "250g", mrp: 25.0, price: 18.0, stockQty: 80),
+          ProductVariantModel(
+            id: "v11_fb",
+            weightLabel: "250g",
+            mrp: 25.0,
+            price: 18.0,
+            stockQty: 80,
+          ),
         ],
       ),
       ProductModel(
@@ -1270,7 +1375,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v11_ds1", weightLabel: "3 Pcs Pack", mrp: 30.0, price: 22.0, stockQty: 80),
+          ProductVariantModel(
+            id: "v11_ds1",
+            weightLabel: "3 Pcs Pack",
+            mrp: 30.0,
+            price: 22.0,
+            stockQty: 80,
+          ),
         ],
       ),
       ProductModel(
@@ -1283,7 +1394,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v11_rb1", weightLabel: "2 Pcs Pack", mrp: 20.0, price: 15.0, stockQty: 90),
+          ProductVariantModel(
+            id: "v11_rb1",
+            weightLabel: "2 Pcs Pack",
+            mrp: 20.0,
+            price: 15.0,
+            stockQty: 90,
+          ),
         ],
       ),
       ProductModel(
@@ -1296,7 +1413,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v11_sp1", weightLabel: "500g", mrp: 35.0, price: 26.0, stockQty: 70),
+          ProductVariantModel(
+            id: "v11_sp1",
+            weightLabel: "500g",
+            mrp: 35.0,
+            price: 26.0,
+            stockQty: 70,
+          ),
         ],
       ),
       ProductModel(
@@ -1309,7 +1432,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v11_ar1", weightLabel: "500g", mrp: 40.0, price: 29.0, stockQty: 60),
+          ProductVariantModel(
+            id: "v11_ar1",
+            weightLabel: "500g",
+            mrp: 40.0,
+            price: 29.0,
+            stockQty: 60,
+          ),
         ],
       ),
 
@@ -1324,7 +1453,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v7", weightLabel: "250g Bunch", mrp: 25.0, price: 18.0, stockQty: 50),
+          ProductVariantModel(
+            id: "v7",
+            weightLabel: "250g Bunch",
+            mrp: 25.0,
+            price: 18.0,
+            stockQty: 50,
+          ),
         ],
       ),
       ProductModel(
@@ -1337,7 +1472,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v9_a", weightLabel: "1 Combo Bunch", mrp: 20.0, price: 15.0, stockQty: 100),
+          ProductVariantModel(
+            id: "v9_a",
+            weightLabel: "1 Combo Bunch",
+            mrp: 20.0,
+            price: 15.0,
+            stockQty: 100,
+          ),
         ],
       ),
       ProductModel(
@@ -1350,7 +1491,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v10_a", weightLabel: "200g Bunch", mrp: 22.0, price: 16.0, stockQty: 80),
+          ProductVariantModel(
+            id: "v10_a",
+            weightLabel: "200g Bunch",
+            mrp: 22.0,
+            price: 16.0,
+            stockQty: 80,
+          ),
         ],
       ),
       ProductModel(
@@ -1363,7 +1510,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v10_cl1", weightLabel: "100g Bunch", mrp: 15.0, price: 10.0, stockQty: 150),
+          ProductVariantModel(
+            id: "v10_cl1",
+            weightLabel: "100g Bunch",
+            mrp: 15.0,
+            price: 10.0,
+            stockQty: 150,
+          ),
         ],
       ),
       ProductModel(
@@ -1376,7 +1529,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v12_l1", weightLabel: "250g Bunch", mrp: 20.0, price: 14.0, stockQty: 70),
+          ProductVariantModel(
+            id: "v12_l1",
+            weightLabel: "250g Bunch",
+            mrp: 20.0,
+            price: 14.0,
+            stockQty: 70,
+          ),
         ],
       ),
       ProductModel(
@@ -1389,7 +1548,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v12_so1", weightLabel: "1 Bunch (200g)", mrp: 25.0, price: 18.0, stockQty: 60),
+          ProductVariantModel(
+            id: "v12_so1",
+            weightLabel: "1 Bunch (200g)",
+            mrp: 25.0,
+            price: 18.0,
+            stockQty: 60,
+          ),
         ],
       ),
 
@@ -1404,7 +1569,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v13_e1", weightLabel: "500g", mrp: 25.0, price: 18.0, stockQty: 100),
+          ProductVariantModel(
+            id: "v13_e1",
+            weightLabel: "500g",
+            mrp: 25.0,
+            price: 18.0,
+            stockQty: 100,
+          ),
         ],
       ),
       ProductModel(
@@ -1417,7 +1588,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v14_e1", weightLabel: "500g", mrp: 35.0, price: 26.0, stockQty: 80),
+          ProductVariantModel(
+            id: "v14_e1",
+            weightLabel: "500g",
+            mrp: 35.0,
+            price: 26.0,
+            stockQty: 80,
+          ),
         ],
       ),
       ProductModel(
@@ -1430,7 +1607,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v15_e1", weightLabel: "1 Head (500g)", mrp: 40.0, price: 29.0, stockQty: 60),
+          ProductVariantModel(
+            id: "v15_e1",
+            weightLabel: "1 Head (500g)",
+            mrp: 40.0,
+            price: 29.0,
+            stockQty: 60,
+          ),
         ],
       ),
       ProductModel(
@@ -1443,7 +1626,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v15_cb1", weightLabel: "1 Head (600g)", mrp: 30.0, price: 22.0, stockQty: 70),
+          ProductVariantModel(
+            id: "v15_cb1",
+            weightLabel: "1 Head (600g)",
+            mrp: 30.0,
+            price: 22.0,
+            stockQty: 70,
+          ),
         ],
       ),
       ProductModel(
@@ -1456,7 +1645,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v16_bt", weightLabel: "500g", mrp: 30.0, price: 22.0, stockQty: 80),
+          ProductVariantModel(
+            id: "v16_bt",
+            weightLabel: "500g",
+            mrp: 30.0,
+            price: 22.0,
+            stockQty: 80,
+          ),
         ],
       ),
       ProductModel(
@@ -1469,7 +1664,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v16_rr1", weightLabel: "500g", mrp: 25.0, price: 18.0, stockQty: 70),
+          ProductVariantModel(
+            id: "v16_rr1",
+            weightLabel: "500g",
+            mrp: 25.0,
+            price: 18.0,
+            stockQty: 70,
+          ),
         ],
       ),
       ProductModel(
@@ -1482,7 +1683,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v16_sc1", weightLabel: "2 Pcs Pack", mrp: 35.0, price: 25.0, stockQty: 90),
+          ProductVariantModel(
+            id: "v16_sc1",
+            weightLabel: "2 Pcs Pack",
+            mrp: 35.0,
+            price: 25.0,
+            stockQty: 90,
+          ),
         ],
       ),
       ProductModel(
@@ -1495,7 +1702,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v17_br", weightLabel: "250g Pack", mrp: 60.0, price: 45.0, stockQty: 50),
+          ProductVariantModel(
+            id: "v17_br",
+            weightLabel: "250g Pack",
+            mrp: 60.0,
+            price: 45.0,
+            stockQty: 50,
+          ),
         ],
       ),
       ProductModel(
@@ -1508,7 +1721,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v18_bm1", weightLabel: "200g Pack", mrp: 55.0, price: 42.0, stockQty: 60),
+          ProductVariantModel(
+            id: "v18_bm1",
+            weightLabel: "200g Pack",
+            mrp: 55.0,
+            price: 42.0,
+            stockQty: 60,
+          ),
         ],
       ),
 
@@ -1523,7 +1742,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v11_a", weightLabel: "100g", mrp: 15.0, price: 10.0, stockQty: 120),
+          ProductVariantModel(
+            id: "v11_a",
+            weightLabel: "100g",
+            mrp: 15.0,
+            price: 10.0,
+            stockQty: 120,
+          ),
         ],
       ),
       ProductModel(
@@ -1536,7 +1761,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v11_gi1", weightLabel: "250g", mrp: 30.0, price: 22.0, stockQty: 110),
+          ProductVariantModel(
+            id: "v11_gi1",
+            weightLabel: "250g",
+            mrp: 30.0,
+            price: 22.0,
+            stockQty: 110,
+          ),
         ],
       ),
       ProductModel(
@@ -1549,7 +1780,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v12_g", weightLabel: "250g", mrp: 45.0, price: 35.0, stockQty: 100),
+          ProductVariantModel(
+            id: "v12_g",
+            weightLabel: "250g",
+            mrp: 45.0,
+            price: 35.0,
+            stockQty: 100,
+          ),
         ],
       ),
       ProductModel(
@@ -1562,7 +1799,13 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v18_a1", weightLabel: "4 Pcs Pack", mrp: 20.0, price: 15.0, stockQty: 160),
+          ProductVariantModel(
+            id: "v18_a1",
+            weightLabel: "4 Pcs Pack",
+            mrp: 20.0,
+            price: 15.0,
+            stockQty: 160,
+          ),
         ],
       ),
 
@@ -1572,13 +1815,26 @@ class ApiService {
         categoryId: "cat_milk",
         name: "Fresh Farm Cow Milk",
         description: "Pure, fresh cow milk, pasteurized & chilled.",
-        imageUrl: "https://ik.imagekit.io/Ganapathi/flash_fresh_cow_milk_600x600.jpg",
+        imageUrl:
+            "https://ik.imagekit.io/Ganapathi/flash_fresh_cow_milk_600x600.jpg",
         isSundayOnly: false,
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v_m1", weightLabel: "500ml", mrp: 30.0, price: 26.0, stockQty: 200),
-          ProductVariantModel(id: "v_m2", weightLabel: "1 Litre", mrp: 60.0, price: 50.0, stockQty: 150),
+          ProductVariantModel(
+            id: "v_m1",
+            weightLabel: "500ml",
+            mrp: 30.0,
+            price: 26.0,
+            stockQty: 200,
+          ),
+          ProductVariantModel(
+            id: "v_m2",
+            weightLabel: "1 Litre",
+            mrp: 60.0,
+            price: 50.0,
+            stockQty: 150,
+          ),
         ],
       ),
       ProductModel(
@@ -1591,8 +1847,20 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v_m3", weightLabel: "500ml", mrp: 38.0, price: 32.0, stockQty: 180),
-          ProductVariantModel(id: "v_m4", weightLabel: "1 Litre", mrp: 75.0, price: 62.0, stockQty: 120),
+          ProductVariantModel(
+            id: "v_m3",
+            weightLabel: "500ml",
+            mrp: 38.0,
+            price: 32.0,
+            stockQty: 180,
+          ),
+          ProductVariantModel(
+            id: "v_m4",
+            weightLabel: "1 Litre",
+            mrp: 75.0,
+            price: 62.0,
+            stockQty: 120,
+          ),
         ],
       ),
 
@@ -1607,9 +1875,27 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v_egg1", weightLabel: "Half Dozen", mrp: 45.0, price: 36.0, stockQty: 150),
-          ProductVariantModel(id: "v_egg2", weightLabel: "1 Dozen", mrp: 90.0, price: 68.0, stockQty: 100),
-          ProductVariantModel(id: "v_egg3", weightLabel: "Saver Tray (30 Pcs)", mrp: 225.0, price: 165.0, stockQty: 40),
+          ProductVariantModel(
+            id: "v_egg1",
+            weightLabel: "Half Dozen",
+            mrp: 45.0,
+            price: 36.0,
+            stockQty: 150,
+          ),
+          ProductVariantModel(
+            id: "v_egg2",
+            weightLabel: "1 Dozen",
+            mrp: 90.0,
+            price: 68.0,
+            stockQty: 100,
+          ),
+          ProductVariantModel(
+            id: "v_egg3",
+            weightLabel: "Saver Tray (30 Pcs)",
+            mrp: 225.0,
+            price: 165.0,
+            stockQty: 40,
+          ),
         ],
       ),
 
@@ -1622,10 +1908,24 @@ class ApiService {
         imageUrl: "https://ik.imagekit.io/Ganapathi/flash_fresh_sunday_special_tender_chicken_curry_cut_600x600.jpg",
         isSundayOnly: true,
         deliveryMode: isSunday ? "LIVE_DELIVERY" : "PREORDER_FOR_SUNDAY",
-        deliveryLabel: isSunday ? "10 Mins Delivery Today!" : "Available for Sunday Delivery (Pre-order)",
+        deliveryLabel: isSunday
+            ? "10 Mins Delivery Today!"
+            : "Available for Sunday Delivery (Pre-order)",
         variants: [
-          ProductVariantModel(id: "v8", weightLabel: "500g", mrp: 150.0, price: 125.0, stockQty: 50),
-          ProductVariantModel(id: "v9", weightLabel: "1kg", mrp: 290.0, price: 240.0, stockQty: 30),
+          ProductVariantModel(
+            id: "v8",
+            weightLabel: "500g",
+            mrp: 150.0,
+            price: 125.0,
+            stockQty: 50,
+          ),
+          ProductVariantModel(
+            id: "v9",
+            weightLabel: "1kg",
+            mrp: 290.0,
+            price: 240.0,
+            stockQty: 30,
+          ),
         ],
       ),
       ProductModel(
@@ -1636,9 +1936,17 @@ class ApiService {
         imageUrl: "https://ik.imagekit.io/Ganapathi/flash_fresh_fresh_boneless_chicken_breast_600x600.jpg",
         isSundayOnly: true,
         deliveryMode: isSunday ? "LIVE_DELIVERY" : "PREORDER_FOR_SUNDAY",
-        deliveryLabel: isSunday ? "10 Mins Delivery Today!" : "Available for Sunday Delivery (Pre-order)",
+        deliveryLabel: isSunday
+            ? "10 Mins Delivery Today!"
+            : "Available for Sunday Delivery (Pre-order)",
         variants: [
-          ProductVariantModel(id: "v14_a", weightLabel: "500g", mrp: 210.0, price: 175.0, stockQty: 40),
+          ProductVariantModel(
+            id: "v14_a",
+            weightLabel: "500g",
+            mrp: 210.0,
+            price: 175.0,
+            stockQty: 40,
+          ),
         ],
       ),
       ProductModel(
@@ -1649,10 +1957,24 @@ class ApiService {
         imageUrl: "https://ik.imagekit.io/Ganapathi/flash_fresh_fresh_godavari_rohu_fish_curry_cut_600x600.jpg",
         isSundayOnly: true,
         deliveryMode: isSunday ? "LIVE_DELIVERY" : "PREORDER_FOR_SUNDAY",
-        deliveryLabel: isSunday ? "10 Mins Delivery Today!" : "Available for Sunday Delivery (Pre-order)",
+        deliveryLabel: isSunday
+            ? "10 Mins Delivery Today!"
+            : "Available for Sunday Delivery (Pre-order)",
         variants: [
-          ProductVariantModel(id: "v10", weightLabel: "500g", mrp: 220.0, price: 185.0, stockQty: 25),
-          ProductVariantModel(id: "v11", weightLabel: "1kg", mrp: 420.0, price: 360.0, stockQty: 20),
+          ProductVariantModel(
+            id: "v10",
+            weightLabel: "500g",
+            mrp: 220.0,
+            price: 185.0,
+            stockQty: 25,
+          ),
+          ProductVariantModel(
+            id: "v11",
+            weightLabel: "1kg",
+            mrp: 420.0,
+            price: 360.0,
+            stockQty: 20,
+          ),
         ],
       ),
       ProductModel(
@@ -1663,10 +1985,24 @@ class ApiService {
         imageUrl: "https://ik.imagekit.io/Ganapathi/flash_fresh_live_cleaned_sea_prawns_medium_600x600.jpg",
         isSundayOnly: true,
         deliveryMode: isSunday ? "LIVE_DELIVERY" : "PREORDER_FOR_SUNDAY",
-        deliveryLabel: isSunday ? "10 Mins Delivery Today!" : "Available for Sunday Delivery (Pre-order)",
+        deliveryLabel: isSunday
+            ? "10 Mins Delivery Today!"
+            : "Available for Sunday Delivery (Pre-order)",
         variants: [
-          ProductVariantModel(id: "v16_a", weightLabel: "250g", mrp: 230.0, price: 199.0, stockQty: 20),
-          ProductVariantModel(id: "v16_b", weightLabel: "500g", mrp: 440.0, price: 380.0, stockQty: 15),
+          ProductVariantModel(
+            id: "v16_a",
+            weightLabel: "250g",
+            mrp: 230.0,
+            price: 199.0,
+            stockQty: 20,
+          ),
+          ProductVariantModel(
+            id: "v16_b",
+            weightLabel: "500g",
+            mrp: 440.0,
+            price: 380.0,
+            stockQty: 15,
+          ),
         ],
       ),
       ProductModel(
@@ -1677,10 +2013,24 @@ class ApiService {
         imageUrl: "https://ik.imagekit.io/Ganapathi/flash_fresh_fresh_tender_mutton_curry_cut_600x600.jpg",
         isSundayOnly: true,
         deliveryMode: isSunday ? "LIVE_DELIVERY" : "PREORDER_FOR_SUNDAY",
-        deliveryLabel: isSunday ? "10 Mins Delivery Today!" : "Available for Sunday Delivery (Pre-order)",
+        deliveryLabel: isSunday
+            ? "10 Mins Delivery Today!"
+            : "Available for Sunday Delivery (Pre-order)",
         variants: [
-          ProductVariantModel(id: "v17_a", weightLabel: "500g", mrp: 480.0, price: 420.0, stockQty: 25),
-          ProductVariantModel(id: "v17_b", weightLabel: "1kg", mrp: 950.0, price: 830.0, stockQty: 15),
+          ProductVariantModel(
+            id: "v17_a",
+            weightLabel: "500g",
+            mrp: 480.0,
+            price: 420.0,
+            stockQty: 25,
+          ),
+          ProductVariantModel(
+            id: "v17_b",
+            weightLabel: "1kg",
+            mrp: 950.0,
+            price: 830.0,
+            stockQty: 15,
+          ),
         ],
       ),
     ];

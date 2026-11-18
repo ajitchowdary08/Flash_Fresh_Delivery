@@ -1,6 +1,8 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../widgets/glass_card.dart';
@@ -31,7 +33,6 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<LocationModel> _searchResults = [];
   List<SavedAddressModel> _savedAddresses = [];
-  List<LocationModel> _nearbyLocations = [];
   bool _isLoading = false;
   bool _isDetectingGps = false;
 
@@ -44,10 +45,12 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     List<SavedAddressModel> saved = [];
-    if (widget.isLoggedIn && widget.userId != null && widget.userId!.isNotEmpty) {
+    if (widget.isLoggedIn &&
+        widget.userId != null &&
+        widget.userId!.isNotEmpty) {
       saved = await ApiService.getSavedAddresses(widget.userId!);
     }
-    final nearby = await ApiService.getNearbyLocations(
+    await ApiService.getNearbyLocations(
       lat: widget.currentLocation.latitude,
       lng: widget.currentLocation.longitude,
     );
@@ -55,7 +58,6 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     if (mounted) {
       setState(() {
         _savedAddresses = saved;
-        _nearbyLocations = nearby;
         _isLoading = false;
       });
     }
@@ -97,7 +99,8 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
       if (perm == LocationPermission.denied) {
         perm = await Geolocator.requestPermission();
       }
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
         if (mounted) {
           LiquidToast.show(
             context,
@@ -121,14 +124,21 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
     } catch (e) {
       if (mounted) {
         // Fallback to hub coordinates if GPS fail
-        _openMapPinPicker(widget.currentLocation.latitude, widget.currentLocation.longitude);
+        _openMapPinPicker(
+          widget.currentLocation.latitude,
+          widget.currentLocation.longitude,
+        );
       }
     } finally {
       if (mounted) setState(() => _isDetectingGps = false);
     }
   }
 
-  void _openMapPinPicker(double initialLat, double initialLng, {String initialName = ""}) {
+  void _openMapPinPicker(
+    double initialLat,
+    double initialLng, {
+    String initialName = "",
+  }) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -154,7 +164,11 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Color(0xFF111827), size: 22),
+            icon: const Icon(
+              Icons.arrow_back,
+              color: Color(0xFF111827),
+              size: 22,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text(
@@ -177,24 +191,37 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 blur: 14,
                 opacity: 0.95,
                 borderRadius: 16,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 2,
+                ),
                 borderColor: Colors.grey.shade300,
                 child: Row(
                   children: [
                     Expanded(
                       child: TextField(
                         controller: _searchController,
-                        style: const TextStyle(color: Color(0xFF111827), fontSize: 14),
+                        style: const TextStyle(
+                          color: Color(0xFF111827),
+                          fontSize: 14,
+                        ),
                         onChanged: _onSearchChanged,
                         decoration: const InputDecoration(
                           hintText: "Search an area or address",
-                          hintStyle: TextStyle(color: Colors.black38, fontSize: 14),
+                          hintStyle: TextStyle(
+                            color: Colors.black38,
+                            fontSize: 14,
+                          ),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
                     ),
-                    const Icon(Icons.search_rounded, color: Colors.black45, size: 22),
+                    const Icon(
+                      Icons.search_rounded,
+                      color: Colors.black45,
+                      size: 22,
+                    ),
                   ],
                 ),
               ),
@@ -207,7 +234,10 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 opacity: 0.95,
                 borderRadius: 16,
                 borderColor: const Color(0xFF2563EB).withOpacity(0.3),
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 16,
+                ),
                 onTap: _isDetectingGps ? null : _handleUseCurrentLocation,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -216,10 +246,17 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                       const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2563EB)),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF2563EB),
+                        ),
                       )
                     else
-                      const Icon(Icons.my_location_rounded, color: Color(0xFF2563EB), size: 20),
+                      const Icon(
+                        Icons.my_location_rounded,
+                        color: Color(0xFF2563EB),
+                        size: 20,
+                      ),
                     const SizedBox(width: 8),
                     Text(
                       _isDetectingGps ? "Locating..." : "Use Current Location",
@@ -248,21 +285,25 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 ),
                 const SizedBox(height: 10),
                 if (_isLoading)
-                  const Center(child: CircularProgressIndicator(color: Color(0xFF059669)))
+                  const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF059669)),
+                  )
                 else if (_searchResults.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20.0),
                     child: Center(
                       child: Text(
                         "No matching places found.",
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   )
                 else
                   ..._searchResults.map((loc) => _buildPlaceItemTile(loc)),
               ]
-
               // Logged Out Banner Section (exact Swiggy style - Image 2)
               else if (!widget.isLoggedIn) ...[
                 const SizedBox(height: 24),
@@ -276,7 +317,10 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.blue.shade50.withOpacity(0.6),
-                          border: Border.all(color: Colors.blue.shade100, width: 2),
+                          border: Border.all(
+                            color: Colors.blue.shade100,
+                            width: 2,
+                          ),
                         ),
                         child: Stack(
                           alignment: Alignment.center,
@@ -287,7 +331,10 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                               height: 100,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.blue.shade200.withOpacity(0.5), width: 1.5),
+                                border: Border.all(
+                                  color: Colors.blue.shade200.withOpacity(0.5),
+                                  width: 1.5,
+                                ),
                               ),
                             ),
                             Container(
@@ -295,11 +342,18 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                               height: 70,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.blue.shade300.withOpacity(0.5), width: 1.5),
+                                border: Border.all(
+                                  color: Colors.blue.shade300.withOpacity(0.5),
+                                  width: 1.5,
+                                ),
                               ),
                             ),
                             // Magnifying glass with Lock
-                            Icon(Icons.search_rounded, size: 52, color: Colors.blue.shade400.withOpacity(0.7)),
+                            Icon(
+                              Icons.search_rounded,
+                              size: 52,
+                              color: Colors.blue.shade400.withOpacity(0.7),
+                            ),
                             Positioned(
                               child: Container(
                                 padding: const EdgeInsets.all(8),
@@ -308,13 +362,19 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.blue.shade200.withOpacity(0.4),
+                                      color: Colors.blue.shade200.withOpacity(
+                                        0.4,
+                                      ),
                                       blurRadius: 10,
                                       spreadRadius: 2,
                                     ),
                                   ],
                                 ),
-                                child: Icon(Icons.lock_rounded, size: 22, color: Colors.blue.shade700),
+                                child: Icon(
+                                  Icons.lock_rounded,
+                                  size: 22,
+                                  color: Colors.blue.shade700,
+                                ),
                               ),
                             ),
                           ],
@@ -361,7 +421,8 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                             backgroundColor: const Color(0xFF2563EB),
                             foregroundColor: Colors.white,
                             elevation: 4,
-                            shadowColor: const Color(0xFF2563EB).withOpacity(0.4),
+                            shadowColor: const Color(0xFF2563EB)
+                                .withOpacity(0.4),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -379,7 +440,6 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                   ),
                 ),
               ]
-
               // Logged In Saved Addresses Section
               else ...[
                 Row(
@@ -395,11 +455,22 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: () => _openMapPinPicker(widget.currentLocation.latitude, widget.currentLocation.longitude),
-                      icon: const Icon(Icons.add_rounded, size: 16, color: Color(0xFF2563EB)),
+                      onPressed: () => _openMapPinPicker(
+                        widget.currentLocation.latitude,
+                        widget.currentLocation.longitude,
+                      ),
+                      icon: const Icon(
+                        Icons.add_rounded,
+                        size: 16,
+                        color: Color(0xFF2563EB),
+                      ),
                       label: const Text(
                         "Add New",
-                        style: TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.bold, fontSize: 13),
+                        style: TextStyle(
+                          color: Color(0xFF2563EB),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ],
@@ -414,19 +485,28 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                     padding: const EdgeInsets.all(14),
                     child: Row(
                       children: [
-                        Icon(Icons.location_city_rounded, color: Colors.grey.shade400, size: 24),
+                        Icon(
+                          Icons.location_city_rounded,
+                          color: Colors.grey.shade400,
+                          size: 24,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             "No saved addresses yet. Tap 'Use Current Location' or search your area.",
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   )
                 else
-                  ..._savedAddresses.map((addr) => _buildSavedAddressCard(addr)),
+                  ..._savedAddresses.map(
+                    (addr) => _buildSavedAddressCard(addr),
+                  ),
               ],
             ],
           ),
@@ -436,7 +516,8 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
   }
 
   Widget _buildSavedAddressCard(SavedAddressModel addr) {
-    final isSelected = widget.currentLocation.name.contains(addr.houseNumber) ||
+    final isSelected =
+        widget.currentLocation.name.contains(addr.houseNumber) ||
         widget.currentLocation.address.contains(addr.streetAddress);
 
     return Padding(
@@ -445,12 +526,16 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
         blur: 14,
         opacity: 0.95,
         borderRadius: 16,
-        borderColor: isSelected ? const Color(0xFF2563EB) : Colors.grey.shade200,
+        borderColor: isSelected
+            ? const Color(0xFF2563EB)
+            : Colors.grey.shade200,
         onTap: () {
           final loc = LocationModel(
             id: addr.id,
             name: "${addr.label}: ${addr.houseNumber}",
-            address: addr.landmark.isNotEmpty ? "${addr.streetAddress} (Near ${addr.landmark})" : addr.streetAddress,
+            address: addr.landmark.isNotEmpty
+                ? "${addr.streetAddress} (Near ${addr.landmark})"
+                : addr.streetAddress,
             latitude: addr.latitude,
             longitude: addr.longitude,
             landmark: addr.landmark,
@@ -466,7 +551,9 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
             CircleAvatar(
               backgroundColor: const Color(0xFF2563EB).withOpacity(0.12),
               child: Icon(
-                addr.label.toLowerCase() == "work" ? Icons.business_rounded : Icons.home_rounded,
+                addr.label.toLowerCase() == "work"
+                    ? Icons.business_rounded
+                    : Icons.home_rounded,
                 color: const Color(0xFF2563EB),
                 size: 20,
               ),
@@ -478,11 +565,17 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 children: [
                   Text(
                     "${addr.label}: ${addr.houseNumber}",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF111827)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF111827),
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    addr.landmark.isNotEmpty ? "${addr.streetAddress} • Near ${addr.landmark}" : addr.streetAddress,
+                    addr.landmark.isNotEmpty
+                        ? "${addr.streetAddress} • Near ${addr.landmark}"
+                        : addr.streetAddress,
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ],
@@ -515,7 +608,11 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 shape: BoxShape.circle,
                 color: Colors.grey.shade100,
               ),
-              child: const Icon(Icons.location_on_outlined, color: Colors.black87, size: 20),
+              child: const Icon(
+                Icons.location_on_outlined,
+                color: Colors.black87,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -524,7 +621,11 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 children: [
                   Text(
                     loc.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF111827)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF111827),
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -536,7 +637,11 @@ class _SelectLocationScreenState extends State<SelectLocationScreen> {
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.black38, size: 14),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.black38,
+              size: 14,
+            ),
           ],
         ),
       ),

@@ -1,18 +1,18 @@
 import 'dart:async';
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../utils/preferences.dart';
-import '../widgets/glass_card.dart';
 import '../widgets/liquid_toast.dart';
 
 /// Central Dark Store Hub coordinates (Matches backend configuration)
 const double _kHubLatitude = 17.495101;
 const double _kHubLongitude = 78.367535;
-const double _kMaxDeliveryRadiusKm = 10.0;
 
 class MapPinPickerScreen extends StatefulWidget {
   final double initialLatitude;
@@ -56,8 +56,12 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
   @override
   void initState() {
     super.initState();
-    _currentLat = widget.initialLatitude != 0.0 ? widget.initialLatitude : _kHubLatitude;
-    _currentLng = widget.initialLongitude != 0.0 ? widget.initialLongitude : _kHubLongitude;
+    _currentLat = widget.initialLatitude != 0.0
+        ? widget.initialLatitude
+        : _kHubLatitude;
+    _currentLng = widget.initialLongitude != 0.0
+        ? widget.initialLongitude
+        : _kHubLongitude;
     if (widget.initialAreaName.isNotEmpty) {
       _areaTitle = widget.initialAreaName;
     }
@@ -78,7 +82,11 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
     super.dispose();
   }
 
-  Future<void> _reverseGeocodeCenter(double lat, double lng, {String? overrideTitle}) async {
+  Future<void> _reverseGeocodeCenter(
+    double lat,
+    double lng, {
+    String? overrideTitle,
+  }) async {
     setState(() {
       _isGeocoding = true;
       _currentLat = lat;
@@ -91,7 +99,9 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
         String title = overrideTitle ?? (res["name"] ?? "").toString();
         if (title.isEmpty || title == "Detected Location") {
           final addr = (res["address"] ?? "").toString();
-          if (addr.isNotEmpty && !addr.startsWith("GPS (") && !addr.startsWith("Detected Location")) {
+          if (addr.isNotEmpty &&
+              !addr.startsWith("GPS (") &&
+              !addr.startsWith("Detected Location")) {
             title = addr.split(',').first.trim();
           } else {
             title = "Hafeezpet Area";
@@ -99,7 +109,9 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
         }
 
         String addr = (res["address"] ?? "").toString();
-        if (addr.isEmpty || addr.startsWith("GPS (") || addr.startsWith("Detected Location")) {
+        if (addr.isEmpty ||
+            addr.startsWith("GPS (") ||
+            addr.startsWith("Detected Location")) {
           addr = "$title, Hafeezpet, Hyderabad, Telangana 500049";
         }
 
@@ -108,7 +120,8 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
           _fullAddress = addr;
           _distanceKm = (res["distance_km"] ?? 0.0).toDouble();
           _isServiceable = res["is_serviceable"] ?? true;
-          _etaMinutes = (res["eta_minutes"] as num?)?.toInt() ??
+          _etaMinutes =
+              (res["eta_minutes"] as num?)?.toInt() ??
               (res["estimated_delivery_minutes"] as num?)?.toInt() ??
               10;
           _isGeocoding = false;
@@ -167,7 +180,9 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
       );
 
       final newTarget = LatLng(pos.latitude, pos.longitude);
-      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(newTarget, 16.5));
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(newTarget, 16.5),
+      );
       _reverseGeocodeCenter(pos.latitude, pos.longitude);
     } catch (e) {
       if (mounted) {
@@ -242,28 +257,36 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
     );
 
     await Preferences.setString(Preferences.keyActiveLocId, confirmedLoc.id);
-    await Preferences.setString(Preferences.keyActiveLocName, confirmedLoc.name);
-    await Preferences.setString(Preferences.keyActiveLocAddress, confirmedLoc.address);
-    await Preferences.setDouble(Preferences.keyActiveLocLat, confirmedLoc.latitude);
-    await Preferences.setDouble(Preferences.keyActiveLocLng, confirmedLoc.longitude);
-    await Preferences.setDouble(Preferences.keyActiveLocDist, confirmedLoc.distanceKm);
-    await Preferences.setBoolean(Preferences.keyActiveLocServiceable, confirmedLoc.isServiceable);
-    await Preferences.setInt(Preferences.keyActiveLocEta, confirmedLoc.etaMinutes);
+    await Preferences.setString(
+      Preferences.keyActiveLocName,
+      confirmedLoc.name,
+    );
+    await Preferences.setString(
+      Preferences.keyActiveLocAddress,
+      confirmedLoc.address,
+    );
+    await Preferences.setDouble(
+      Preferences.keyActiveLocLat,
+      confirmedLoc.latitude,
+    );
+    await Preferences.setDouble(
+      Preferences.keyActiveLocLng,
+      confirmedLoc.longitude,
+    );
+    await Preferences.setDouble(
+      Preferences.keyActiveLocDist,
+      confirmedLoc.distanceKm,
+    );
+    await Preferences.setBoolean(
+      Preferences.keyActiveLocServiceable,
+      confirmedLoc.isServiceable,
+    );
+    await Preferences.setInt(
+      Preferences.keyActiveLocEta,
+      confirmedLoc.etaMinutes,
+    );
 
     widget.onLocationConfirmed(confirmedLoc);
-  }
-
-  Set<Circle> get _geofenceCircles {
-    return {
-      Circle(
-        circleId: const CircleId("hub_10km_zone"),
-        center: const LatLng(_kHubLatitude, _kHubLongitude),
-        radius: _kMaxDeliveryRadiusKm * 1000, // 10 KM in meters
-        strokeColor: const Color(0xFF2563EB),
-        strokeWidth: 2,
-        fillColor: const Color(0x152563EB),
-      ),
-    };
   }
 
   @override
@@ -294,12 +317,17 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
           // 2. Stationary Center Marker Pin Overlay (Exact Swiggy style - Image 3)
           Center(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 36.0), // Align pin tip at screen center
+              padding: const EdgeInsets.only(
+                bottom: 36.0,
+              ), // Align pin tip at screen center
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF111827),
                       borderRadius: BorderRadius.circular(12),
@@ -327,11 +355,17 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                       Icon(
                         Icons.location_on_rounded,
                         size: 48,
-                        color: _isServiceable ? const Color(0xFF2563EB) : Colors.red.shade700,
+                        color: _isServiceable
+                            ? const Color(0xFF2563EB)
+                            : Colors.red.shade700,
                       ),
                       const Positioned(
                         top: 10,
-                        child: Icon(Icons.circle, size: 14, color: Colors.white),
+                        child: Icon(
+                          Icons.circle,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                     ],
                   ),
@@ -341,7 +375,9 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                     height: 5,
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.3),
-                      borderRadius: const BorderRadius.all(Radius.elliptical(10, 5)),
+                      borderRadius: const BorderRadius.all(
+                        Radius.elliptical(10, 5),
+                      ),
                     ),
                   ),
                 ],
@@ -352,7 +388,10 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
           // 3. Top Floating Header Bar with Back button & Search Box (Image 3)
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 10.0,
+              ),
               child: Column(
                 children: [
                   Row(
@@ -370,10 +409,14 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                                 color: Colors.black.withOpacity(0.12),
                                 blurRadius: 10,
                                 offset: const Offset(0, 2),
-                              )
+                              ),
                             ],
                           ),
-                          child: const Icon(Icons.arrow_back, color: Color(0xFF111827), size: 20),
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: Color(0xFF111827),
+                            size: 20,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -391,7 +434,7 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                                 color: Colors.black.withOpacity(0.1),
                                 blurRadius: 12,
                                 offset: const Offset(0, 3),
-                              )
+                              ),
                             ],
                           ),
                           child: Row(
@@ -399,17 +442,29 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                               Expanded(
                                 child: TextField(
                                   controller: _searchController,
-                                  style: const TextStyle(color: Color(0xFF111827), fontSize: 13),
+                                  style: const TextStyle(
+                                    color: Color(0xFF111827),
+                                    fontSize: 13,
+                                  ),
                                   onChanged: _onSearchQueryChanged,
                                   decoration: const InputDecoration(
                                     hintText: "Search an area or address",
-                                    hintStyle: TextStyle(color: Colors.black45, fontSize: 13),
+                                    hintStyle: TextStyle(
+                                      color: Colors.black45,
+                                      fontSize: 13,
+                                    ),
                                     border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(vertical: 12),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
                                   ),
                                 ),
                               ),
-                              const Icon(Icons.search_rounded, color: Colors.black54, size: 20),
+                              const Icon(
+                                Icons.search_rounded,
+                                color: Colors.black54,
+                                size: 20,
+                              ),
                             ],
                           ),
                         ),
@@ -430,7 +485,7 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                             color: Colors.black.withOpacity(0.15),
                             blurRadius: 16,
                             offset: const Offset(0, 4),
-                          )
+                          ),
                         ],
                       ),
                       child: ListView.separated(
@@ -442,9 +497,24 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                           final loc = _searchResults[idx];
                           return ListTile(
                             dense: true,
-                            leading: const Icon(Icons.location_on_outlined, color: Color(0xFF2563EB), size: 18),
-                            title: Text(loc.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            subtitle: Text(loc.address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
+                            leading: const Icon(
+                              Icons.location_on_outlined,
+                              color: Color(0xFF2563EB),
+                              size: 18,
+                            ),
+                            title: Text(
+                              loc.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            subtitle: Text(
+                              loc.address,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11),
+                            ),
                             onTap: () => _selectSearchResult(loc),
                           );
                         },
@@ -462,7 +532,10 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
             child: GestureDetector(
               onTap: _isLocatingGps ? null : _animateToCurrentGps,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
@@ -481,10 +554,17 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                       const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFD97706)),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFFD97706),
+                        ),
                       )
                     else
-                      const Icon(Icons.gps_fixed_rounded, color: Color(0xFFD97706), size: 18),
+                      const Icon(
+                        Icons.gps_fixed_rounded,
+                        color: Color(0xFFD97706),
+                        size: 18,
+                      ),
                     const SizedBox(width: 6),
                     const Text(
                       "Current location",
@@ -508,7 +588,9 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.14),
@@ -524,11 +606,17 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                   // Location Icon + Title
                   Row(
                     children: [
-                      const Icon(Icons.location_on_rounded, color: Color(0xFF2563EB), size: 24),
+                      const Icon(
+                        Icons.location_on_rounded,
+                        color: Color(0xFF2563EB),
+                        size: 24,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _isGeocoding ? "Locating pin position..." : _areaTitle,
+                          _isGeocoding
+                              ? "Locating pin position..."
+                              : _areaTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -545,7 +633,9 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
 
                   // Full Address Subtitle
                   Text(
-                    _isGeocoding ? "Reverse geocoding coordinates..." : _fullAddress,
+                    _isGeocoding
+                        ? "Reverse geocoding coordinates..."
+                        : _fullAddress,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -559,13 +649,14 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
 
                   // Delivery Zone Status Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFECFDF5),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFF10B981),
-                      ),
+                      border: Border.all(color: const Color(0xFF10B981)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -597,7 +688,9 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                     child: ElevatedButton(
                       onPressed: _isGeocoding ? null : _handleConfirmAndProceed,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isServiceable ? const Color(0xFF2563EB) : Colors.grey.shade400,
+                        backgroundColor: _isServiceable
+                            ? const Color(0xFF2563EB)
+                            : Colors.grey.shade400,
                         foregroundColor: Colors.white,
                         elevation: _isServiceable ? 4 : 0,
                         shadowColor: const Color(0xFF2563EB).withOpacity(0.4),
@@ -606,7 +699,9 @@ class _MapPinPickerScreenState extends State<MapPinPickerScreen> {
                         ),
                       ),
                       child: Text(
-                        _isServiceable ? "Confirm & proceed" : "Location Outside Delivery Zone",
+                        _isServiceable
+                            ? "Confirm & proceed"
+                            : "Location Outside Delivery Zone",
                         style: const TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 15,
