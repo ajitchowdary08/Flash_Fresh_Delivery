@@ -41,23 +41,30 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _isSundayMode = false;
   bool _isLoading = true;
+  bool _isNonVegMode = false; // Default: Veg Mode
   String _selectedCategory = "all";
-  String _sortBy = "popular"; // "popular", "price_low", "price_high", "name"
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
   List<ProductModel> _allProducts = [];
   final Map<String, ProductVariantModel> _selectedVariants = {};
 
-  final List<Map<String, String>> _shopCategoryIcons = [
-    {"id": "all", "label": "All Items", "icon": "⚡", "bg": "0xFFE6F4EA"},
+  final List<Map<String, String>> _vegCategories = [
+    {"id": "all", "label": "All Veg", "icon": "🥬", "bg": "0xFFE6F4EA"},
     {"id": "favorites", "label": "Favorites", "icon": "❤️", "bg": "0xFFFEE2E2"},
-    {"id": "veg", "label": "Veggies", "icon": "🥬", "bg": "0xFFDCFCE7"},
+    {"id": "veg", "label": "Veggies", "icon": "🥦", "bg": "0xFFDCFCE7"},
+    {"id": "milk", "label": "Milk", "icon": "🥛", "bg": "0xFFE0F2FE"},
     {"id": "leafy", "label": "Greens", "icon": "🍃", "bg": "0xFFE0E7FF"},
     {"id": "aromatics", "label": "Aromatics", "icon": "🌶️", "bg": "0xFFFEE2E2"},
     {"id": "exotics", "label": "Exotics", "icon": "🥗", "bg": "0xFFFEF3C7"},
+  ];
+
+  final List<Map<String, String>> _nonVegCategories = [
+    {"id": "all", "label": "All Non-Veg", "icon": "🍗", "bg": "0xFFFFEDD5"},
+    {"id": "favorites", "label": "Favorites", "icon": "❤️", "bg": "0xFFFEE2E2"},
     {"id": "meat", "label": "Chicken", "icon": "🍗", "bg": "0xFFFFEDD5"},
-    {"id": "seafood", "label": "Fish", "icon": "🐟", "bg": "0xFFE0F2FE"},
+    {"id": "seafood", "label": "Fish & Prawns", "icon": "🐟", "bg": "0xFFE0F2FE"},
+    {"id": "eggs", "label": "Eggs", "icon": "🥚", "bg": "0xFFFEF3C7"},
   ];
 
   @override
@@ -111,36 +118,46 @@ class _HomeScreenState extends State<HomeScreen> {
   double get cartTotal => widget.cartItems.fold(0.0, (acc, item) => acc + item.totalPrice);
   int get cartCount => widget.cartItems.fold(0, (acc, item) => acc + item.quantity);
 
+  bool _isNonVegProduct(ProductModel p) {
+    if (p.categoryId == "cat_veg" ||
+        p.categoryId == "cat_leafy" ||
+        p.categoryId == "cat_exotics" ||
+        p.categoryId == "cat_aromatics" ||
+        p.categoryId == "cat_milk") {
+      return false;
+    }
+    return p.isSundayOnly ||
+        p.categoryId == "cat_chicken" ||
+        p.categoryId == "cat_fish" ||
+        p.categoryId == "cat_eggs";
+  }
+
   List<ProductModel> get filteredProducts {
     List<ProductModel> list = _allProducts.where((p) {
+      final isNonVeg = _isNonVegProduct(p);
+
+      if (_isNonVegMode) {
+        if (!isNonVeg) return false;
+      } else {
+        if (isNonVeg) return false;
+      }
+
       if (_selectedCategory == "favorites") return widget.favoriteProductIds.contains(p.id);
-      if (_selectedCategory == "veg") return p.categoryId == "cat_veg" || (!p.isSundayOnly && p.categoryId != "cat_leafy" && p.categoryId != "cat_aromatics");
+      if (_selectedCategory == "veg") return p.categoryId == "cat_veg";
+      if (_selectedCategory == "milk") return p.categoryId == "cat_milk" || p.name.toLowerCase().contains("milk");
+      if (_selectedCategory == "eggs") return p.categoryId == "cat_eggs" || p.name.toLowerCase().contains("white hen egg");
       if (_selectedCategory == "leafy") return p.categoryId == "cat_leafy";
       if (_selectedCategory == "aromatics") return p.categoryId == "cat_aromatics";
       if (_selectedCategory == "exotics") return p.categoryId == "cat_exotics";
-      if (_selectedCategory == "meat" || _selectedCategory == "seafood") return p.isSundayOnly || p.categoryId == "cat_chicken" || p.categoryId == "cat_fish";
+      if (_selectedCategory == "meat") return p.categoryId == "cat_chicken" || p.name.toLowerCase().contains("chicken");
+      if (_selectedCategory == "seafood") return p.categoryId == "cat_fish" || p.name.toLowerCase().contains("fish") || p.name.toLowerCase().contains("prawn") || p.name.toLowerCase().contains("mutton");
+
       return true;
     }).toList();
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       list = list.where((p) => p.name.toLowerCase().contains(q) || p.description.toLowerCase().contains(q)).toList();
-    }
-
-    if (_sortBy == "price_low") {
-      list.sort((a, b) {
-        double priceA = (_selectedVariants[a.id] ?? a.variants.first).price;
-        double priceB = (_selectedVariants[b.id] ?? b.variants.first).price;
-        return priceA.compareTo(priceB);
-      });
-    } else if (_sortBy == "price_high") {
-      list.sort((a, b) {
-        double priceA = (_selectedVariants[a.id] ?? a.variants.first).price;
-        double priceB = (_selectedVariants[b.id] ?? b.variants.first).price;
-        return priceB.compareTo(priceA);
-      });
-    } else if (_sortBy == "name") {
-      list.sort((a, b) => a.name.compareTo(b.name));
     }
 
     return list;
@@ -173,8 +190,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Top Light Swiggy-Style Location Header (Exact Image 1 layout)
                 _buildSwiggyHeader(),
 
-                // Search Bar directly on Home Screen (Exact Image 1 layout)
+                // Search Bar directly on Home Screen
                 _buildSearchBar(),
+
+                // Veg / Non-Veg Toggle Header Bar
+                _buildVegNonVegToggleBar(),
 
                 // Visual Shop Categories Icons Grid/Slider
                 _buildShopCategoryIconsBar(),
@@ -182,12 +202,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Products Grid
                 Expanded(
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF059669)))
+                      ? _buildHomeScreenShimmer()
                       : GridView.builder(
                           padding: EdgeInsets.fromLTRB(16, 10, 16, widget.cartItems.isEmpty ? 100 : 160),
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            childAspectRatio: 0.84,
+                            childAspectRatio: 0.78,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
                           ),
@@ -397,54 +417,179 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showSortModalSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildVegNonVegToggleBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.grey.shade200, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
           children: [
-            const Text("Sort Products By", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF111827))),
-            const SizedBox(height: 14),
-            ListTile(
-              leading: const Icon(Icons.star_rounded, color: Color(0xFF059669)),
-              title: const Text("Popularity & Relevance"),
-              trailing: _sortBy == "popular" ? const Icon(Icons.check_circle, color: Color(0xFF059669)) : null,
-              onTap: () {
-                setState(() => _sortBy = "popular");
-                Navigator.pop(ctx);
-              },
+            // VEG & DAIRY TAB
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (_isNonVegMode) {
+                    setState(() {
+                      _isNonVegMode = false;
+                      _selectedCategory = "all";
+                    });
+                  }
+                },
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: !_isNonVegMode
+                        ? const LinearGradient(
+                            colors: [Color(0xFF059669), Color(0xFF10B981)],
+                          )
+                        : null,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: !_isNonVegMode
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFF059669).withOpacity(0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 3),
+                            )
+                          ]
+                        : null,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: !_isNonVegMode ? Colors.white : const Color(0xFF059669),
+                            width: 2.0,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: !_isNonVegMode ? Colors.white : const Color(0xFF059669),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "VEG & DAIRY",
+                        style: TextStyle(
+                          color: !_isNonVegMode ? Colors.white : const Color(0xFF374151),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12.5,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "🥦",
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: !_isNonVegMode ? Colors.white : Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.arrow_downward_rounded, color: Color(0xFF059669)),
-              title: const Text("Price: Low to High"),
-              trailing: _sortBy == "price_low" ? const Icon(Icons.check_circle, color: Color(0xFF059669)) : null,
-              onTap: () {
-                setState(() => _sortBy = "price_low");
-                Navigator.pop(ctx);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.arrow_upward_rounded, color: Color(0xFF059669)),
-              title: const Text("Price: High to Low"),
-              trailing: _sortBy == "price_high" ? const Icon(Icons.check_circle, color: Color(0xFF059669)) : null,
-              onTap: () {
-                setState(() => _sortBy = "price_high");
-                Navigator.pop(ctx);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.sort_by_alpha_rounded, color: Color(0xFF059669)),
-              title: const Text("Name (A to Z)"),
-              trailing: _sortBy == "name" ? const Icon(Icons.check_circle, color: Color(0xFF059669)) : null,
-              onTap: () {
-                setState(() => _sortBy = "name");
-                Navigator.pop(ctx);
-              },
+
+            const SizedBox(width: 6),
+
+            // NON-VEG & EGGS TAB
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (!_isNonVegMode) {
+                    setState(() {
+                      _isNonVegMode = true;
+                      _selectedCategory = "all";
+                    });
+                  }
+                },
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: _isNonVegMode
+                        ? const LinearGradient(
+                            colors: [Color(0xFFDC2626), Color(0xFFEF4444)],
+                          )
+                        : null,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: _isNonVegMode
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFDC2626).withOpacity(0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 3),
+                            )
+                          ]
+                        : null,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: _isNonVegMode ? Colors.white : const Color(0xFFDC2626),
+                            width: 2.0,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Icons.change_history_rounded,
+                          size: 9,
+                          color: _isNonVegMode ? Colors.white : const Color(0xFFDC2626),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "NON-VEG & EGGS",
+                        style: TextStyle(
+                          color: _isNonVegMode ? Colors.white : const Color(0xFF374151),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12.5,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "🍗",
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: _isNonVegMode ? Colors.white : Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -453,56 +598,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildShopCategoryIconsBar() {
+    final activeCategories = _isNonVegMode ? _nonVegCategories : _vegCategories;
+
     return Container(
       height: 80,
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 2),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _shopCategoryIcons.length + 1,
+        itemCount: activeCategories.length,
         itemBuilder: (context, index) {
-          if (index == _shopCategoryIcons.length) {
-            return GestureDetector(
-              onTap: _showSortModalSheet,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _sortBy != "popular" ? const Color(0xFF059669) : Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: _sortBy != "popular" ? const Color(0xFF059669) : Colors.grey.shade300,
-                    width: 1.5,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: _sortBy != "popular" ? Colors.white.withOpacity(0.2) : Colors.green.shade50,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.tune_rounded, size: 18, color: _sortBy != "popular" ? Colors.white : const Color(0xFF059669)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Sort",
-                      style: TextStyle(
-                        color: _sortBy != "popular" ? Colors.white : const Color(0xFF111827),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final cat = _shopCategoryIcons[index];
+          final cat = activeCategories[index];
           final isSelected = _selectedCategory == cat["id"];
           final bgColor = Color(int.parse(cat["bg"]!));
 
@@ -510,13 +616,17 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: () => setState(() => _selectedCategory = cat["id"]!),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(right: 12),
+              margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF059669) : Colors.white,
+                color: isSelected
+                    ? (_isNonVegMode ? const Color(0xFFDC2626) : const Color(0xFF059669))
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: isSelected ? const Color(0xFF059669) : Colors.grey.shade200,
+                  color: isSelected
+                      ? (_isNonVegMode ? const Color(0xFFDC2626) : const Color(0xFF059669))
+                      : Colors.grey.shade200,
                   width: 1.5,
                 ),
                 boxShadow: [
@@ -569,17 +679,25 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Stack(
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: Image.network(
-                  product.imageUrl,
-                  height: 98,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 98,
-                    color: Colors.green.shade50,
-                    child: const Icon(Icons.eco_rounded, size: 40, color: Color(0xFF059669)),
+              Container(
+                height: 104,
+                width: double.infinity,
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    product.imageUrl,
+                    height: 104,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.green.shade50,
+                      child: const Icon(Icons.eco_rounded, size: 40, color: Color(0xFF059669)),
+                    ),
                   ),
                 ),
               ),
@@ -765,6 +883,121 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHomeScreenShimmer() {
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(16, 10, 16, widget.cartItems.isEmpty ? 100 : 160),
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.78,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: 6,
+      itemBuilder: (context, index) {
+        return GlassCard(
+          blur: 12,
+          opacity: 0.95,
+          borderRadius: 20,
+          padding: EdgeInsets.zero,
+          borderColor: Colors.grey.shade200,
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShimmerBox(width: double.infinity, height: 98, borderRadius: 20),
+              Padding(
+                padding: EdgeInsets.fromLTRB(10, 8, 10, 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerBox(width: 110, height: 12, borderRadius: 4),
+                    SizedBox(height: 4),
+                    ShimmerBox(width: 70, height: 10, borderRadius: 4),
+                    SizedBox(height: 8),
+                    ShimmerBox(width: 80, height: 20, borderRadius: 6),
+                    SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        ShimmerBox(width: 44, height: 18, borderRadius: 4),
+                        ShimmerBox(width: 52, height: 26, borderRadius: 8),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class ShimmerBox extends StatefulWidget {
+  final double width;
+  final double height;
+  final double borderRadius;
+
+  const ShimmerBox({
+    super.key,
+    required this.width,
+    required this.height,
+    this.borderRadius = 12,
+  });
+
+  @override
+  State<ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<ShimmerBox> with SingleTickerProviderStateMixin {
+  late final AnimationController _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) {
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Colors.grey.shade200,
+                Colors.grey.shade100,
+                Colors.grey.shade200,
+              ],
+              stops: [
+                (_anim.value - 0.3).clamp(0.0, 1.0),
+                _anim.value.clamp(0.0, 1.0),
+                (_anim.value + 0.3).clamp(0.0, 1.0),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

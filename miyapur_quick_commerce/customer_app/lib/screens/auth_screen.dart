@@ -622,7 +622,36 @@ class _AuthScreenState extends State<AuthScreen> {
                 }),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
+
+              // Brand Logo Container between Slider & Login Card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF059669).withOpacity(0.25),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Image.asset(
+                  "assets/images/app_logo.png",
+                  width: 52,
+                  height: 52,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.flash_on_rounded,
+                    size: 40,
+                    color: Color(0xFF059669),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 14),
 
               // 2. Login / OTP Glass Form Card (iOS 26 Liquid Glass)
               GlassCard(

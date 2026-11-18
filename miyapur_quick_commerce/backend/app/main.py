@@ -38,6 +38,7 @@ app.include_router(store_router, prefix=settings.API_V1_STR)
 import os
 
 @app.get("/store", response_class=HTMLResponse)
+@app.get("/store/dashboard", response_class=HTMLResponse)
 def get_store_dashboard():
     template_path = os.path.join(os.path.dirname(__file__), "templates", "store_dashboard.html")
     with open(template_path, "r", encoding="utf-8") as f:

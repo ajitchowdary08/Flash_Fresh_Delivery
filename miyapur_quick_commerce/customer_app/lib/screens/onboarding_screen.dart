@@ -62,13 +62,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFF059669).withOpacity(0.12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            "assets/images/app_logo.png",
+                            width: 34,
+                            height: 34,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.flash_on_rounded,
+                              color: Color(0xFF059669),
+                              size: 24,
+                            ),
                           ),
-                          child: const Icon(Icons.flash_on_rounded, color: Color(0xFF059669), size: 18),
                         ),
                         const SizedBox(width: 8),
                         const Text(
@@ -108,19 +114,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             child: Column(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(20),
+                                  padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: const Color(0xFF059669).withOpacity(0.12),
+                                    color: Colors.white,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFF059669).withOpacity(0.2),
+                                        color: const Color(0xFF059669).withOpacity(0.25),
                                         blurRadius: 30,
-                                        spreadRadius: 2,
+                                        spreadRadius: 4,
                                       ),
                                     ],
                                   ),
-                                  child: Icon(item["icon"] as IconData, size: 64, color: const Color(0xFF059669)),
+                                  child: Image.asset(
+                                    "assets/images/app_logo.png",
+                                    width: 72,
+                                    height: 72,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      item["icon"] as IconData,
+                                      size: 64,
+                                      color: const Color(0xFF059669),
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 24),
                                 Container(
