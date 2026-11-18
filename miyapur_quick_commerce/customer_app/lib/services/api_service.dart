@@ -1000,17 +1000,22 @@ class ApiService {
   }
 
   // 17. Rate Order
-  static Future<bool> rateOrder(
-    String orderId,
-    int rating,
-    String review,
-  ) async {
+  static Future<bool> rateOrder({
+    required String orderId,
+    required int riderRating,
+    required int freshnessRating,
+    required String review,
+  }) async {
     try {
       final response = await http
           .post(
             Uri.parse("$baseUrl/orders/$orderId/rate"),
             headers: {"Content-Type": "application/json"},
-            body: jsonEncode({"rating": rating, "review": review}),
+            body: jsonEncode({
+              "rating": riderRating,
+              "freshness_rating": freshnessRating,
+              "review": review,
+            }),
           )
           .timeout(const Duration(seconds: 15));
 
@@ -1561,7 +1566,7 @@ class ApiService {
         ],
       ),
 
-      // 5. Fresh Farm Milk & Dairy (500ml & 1000ml)
+      // 5. Fresh Farm Milk & Dairy (500ml & 1 Litre)
       ProductModel(
         id: "p_milk1",
         categoryId: "cat_milk",
@@ -1572,8 +1577,8 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v_m1", weightLabel: "Half Litre (500ml)", mrp: 30.0, price: 26.0, stockQty: 200),
-          ProductVariantModel(id: "v_m2", weightLabel: "1 Litre (1000ml)", mrp: 60.0, price: 50.0, stockQty: 150),
+          ProductVariantModel(id: "v_m1", weightLabel: "500ml", mrp: 30.0, price: 26.0, stockQty: 200),
+          ProductVariantModel(id: "v_m2", weightLabel: "1 Litre", mrp: 60.0, price: 50.0, stockQty: 150),
         ],
       ),
       ProductModel(
@@ -1586,8 +1591,8 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v_m3", weightLabel: "Half Litre (500ml)", mrp: 38.0, price: 32.0, stockQty: 180),
-          ProductVariantModel(id: "v_m4", weightLabel: "1 Litre (1000ml)", mrp: 75.0, price: 62.0, stockQty: 120),
+          ProductVariantModel(id: "v_m3", weightLabel: "500ml", mrp: 38.0, price: 32.0, stockQty: 180),
+          ProductVariantModel(id: "v_m4", weightLabel: "1 Litre", mrp: 75.0, price: 62.0, stockQty: 120),
         ],
       ),
 
@@ -1602,8 +1607,8 @@ class ApiService {
         deliveryMode: "LIVE_DELIVERY",
         deliveryLabel: "10-15 Mins Quick Delivery",
         variants: [
-          ProductVariantModel(id: "v_egg1", weightLabel: "Half Dozen (6 Pcs)", mrp: 45.0, price: 36.0, stockQty: 150),
-          ProductVariantModel(id: "v_egg2", weightLabel: "1 Dozen (12 Pcs)", mrp: 90.0, price: 68.0, stockQty: 100),
+          ProductVariantModel(id: "v_egg1", weightLabel: "Half Dozen", mrp: 45.0, price: 36.0, stockQty: 150),
+          ProductVariantModel(id: "v_egg2", weightLabel: "1 Dozen", mrp: 90.0, price: 68.0, stockQty: 100),
           ProductVariantModel(id: "v_egg3", weightLabel: "Saver Tray (30 Pcs)", mrp: 225.0, price: 165.0, stockQty: 40),
         ],
       ),

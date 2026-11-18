@@ -117,6 +117,11 @@ class Order(Base):
     rider_lat = Column(Float, default=17.495101)
     rider_lng = Column(Float, default=78.367535)
 
+    # Rating & Review Feedback
+    freshness_rating = Column(Integer, nullable=True) # 1 to 5 Stars
+    rider_rating = Column(Integer, nullable=True)     # 1 to 5 Stars
+    review_notes = Column(Text, nullable=True, default="")
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="orders")

@@ -92,6 +92,9 @@
       <button onclick="switchTab('catalog')" id="tabCatalog" class="py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center">
         <i class="fa-solid fa-store mr-2 text-purple-600"></i> Catalog Management
       </button>
+      <button onclick="switchTab('ratings')" id="tabRatings" class="py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center">
+        <i class="fa-solid fa-star mr-2 text-amber-500"></i> Customer Ratings
+      </button>
     </div>
 
     <!-- Tab 1: Packing & Dispatch Station -->
@@ -362,6 +365,30 @@
     </div>
   </div>
 
+  <!-- Tab 5: Customer Ratings & Live Reviews -->
+  <div id="ratingsSection" class="hidden">
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div class="flex justify-between items-center mb-6">
+        <div class="flex items-center space-x-3">
+          <div class="bg-amber-100 text-amber-800 p-3 rounded-xl text-xl">
+            <i class="fa-solid fa-star"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-lg text-slate-800">Customer Ratings & Live Feedback</h3>
+            <p class="text-xs text-slate-500">Real-Time Produce Freshness & Rider Speed Scores</p>
+          </div>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl text-right">
+          <span class="text-xs text-amber-700 font-bold block">Overall Store Rating</span>
+          <span class="text-2xl font-black text-amber-600">4.9 ⭐</span>
+        </div>
+      </div>
+      <div id="ratingsContainer" class="space-y-3">
+        <!-- Live ratings populated via JS -->
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_BASE = "/api/v1";
     let activeRiders = [];
@@ -419,11 +446,13 @@
       document.getElementById('meatSection').classList.add('hidden');
       document.getElementById('inventorySection').classList.add('hidden');
       document.getElementById('catalogSection').classList.add('hidden');
+      document.getElementById('ratingsSection').classList.add('hidden');
 
       document.getElementById('tabPacking').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
       document.getElementById('tabMeat').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
       document.getElementById('tabInventory').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
       document.getElementById('tabCatalog').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
+      document.getElementById('tabRatings').className = "py-3 px-6 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 text-sm flex items-center";
 
       if (tab === 'packing') {
         document.getElementById('packingSection').classList.remove('hidden');
@@ -435,10 +464,41 @@
         document.getElementById('inventorySection').classList.remove('hidden');
         document.getElementById('tabInventory').className = "py-3 px-6 font-bold border-b-2 border-blue-600 text-blue-800 text-sm flex items-center";
         loadInventory();
-      } else {
+      } else if (tab === 'catalog') {
         document.getElementById('catalogSection').classList.remove('hidden');
         document.getElementById('tabCatalog').className = "py-3 px-6 font-bold border-b-2 border-purple-600 text-purple-800 text-sm flex items-center";
         loadCatalogTab();
+      } else if (tab === 'ratings') {
+        document.getElementById('ratingsSection').classList.remove('hidden');
+        document.getElementById('tabRatings').className = "py-3 px-6 font-bold border-b-2 border-amber-500 text-amber-800 text-sm flex items-center";
+        loadRatings();
+      }
+    }
+
+    async function loadRatings() {
+      try {
+        const res = await fetch(`${API_BASE}/rider/reviews`);
+        const data = await res.json();
+        const container = document.getElementById('ratingsContainer');
+        if (data.recent_reviews && data.recent_reviews.length > 0) {
+          container.innerHTML = data.recent_reviews.map(r => `
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
+              <div>
+                <div class="flex items-center space-x-2 mb-1">
+                  <span class="font-black text-slate-800 text-sm">${r.order_number}</span>
+                  <span class="bg-amber-100 text-amber-800 text-[11px] font-bold px-2 py-0.5 rounded">Rider: ${'⭐'.repeat(r.rider_rating)}</span>
+                  <span class="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded">Freshness: ${'⭐'.repeat(r.freshness_rating)}</span>
+                </div>
+                <p class="text-xs text-slate-700 font-medium">"${r.review}"</p>
+              </div>
+              <span class="text-[11px] text-slate-400 font-semibold">${r.date}</span>
+            </div>
+          `).join('');
+        } else {
+          container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">No ratings yet today. Ratings submitted by customers appear here live.</div>`;
+        }
+      } catch (e) {
+        console.error("Failed to load ratings", e);
       }
     }
 

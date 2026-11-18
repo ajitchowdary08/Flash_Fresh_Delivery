@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/liquid_toast.dart';
 import 'order_tracking_screen.dart';
 import 'help_support_screen.dart';
 
@@ -408,13 +409,18 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
               ),
               onPressed: () async {
                 Navigator.pop(ctx);
-                await ApiService.rateOrder(orderId, productRating, reviewCtrl.text.trim());
+                await ApiService.rateOrder(
+                  orderId: orderId,
+                  riderRating: riderRating,
+                  freshnessRating: productRating,
+                  review: reviewCtrl.text.trim(),
+                );
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Thank you for your rating & feedback! ⭐"),
-                    backgroundColor: Color(0xFF059669),
-                  ),
+                LiquidToast.show(
+                  context,
+                  message: "⭐ Thank you for rating rider & freshness!",
+                  icon: Icons.stars_rounded,
+                  accentColor: const Color(0xFF059669),
                 );
               },
               child: const Text("Submit Rating", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),

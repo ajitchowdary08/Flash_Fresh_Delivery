@@ -102,8 +102,115 @@ class EarningsScreen extends StatelessWidget {
                 ),
               ),
             ),
+
+            const SizedBox(height: 16),
+
+            // Live Customer Ratings & Feedback Card
+            Card(
+              elevation: 0.5,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Customer Ratings & Feedback",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                              SizedBox(width: 4),
+                              Text(
+                                "4.9 ⭐",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFFB45309),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 20),
+
+                    _buildReviewTile(
+                      orderNum: "Order #MYP-20261118-2313",
+                      stars: 5,
+                      comment: "Super fast 10-minute delivery & polite behavior!",
+                      time: "Today, 10:15 AM",
+                    ),
+                    const SizedBox(height: 10),
+                    _buildReviewTile(
+                      orderNum: "Order #MYP-20261118-1904",
+                      stars: 5,
+                      comment: "Produce was fresh & delivered safely on time.",
+                      time: "Yesterday, 06:40 PM",
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildReviewTile({
+    required String orderNum,
+    required int stars,
+    required String comment,
+    required String time,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                orderNum,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87),
+              ),
+              Row(
+                children: List.generate(
+                  stars,
+                  (_) => const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            comment,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            time,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+          ),
+        ],
       ),
     );
   }

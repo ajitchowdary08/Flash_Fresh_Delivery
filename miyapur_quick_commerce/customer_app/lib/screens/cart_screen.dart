@@ -421,6 +421,194 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  void _showPaymentSuccessDialog({
+    required String orderId,
+    required String orderNum,
+    required double grandTotal,
+    required List<CartItemModel> orderedItems,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: GlassCard(
+          blur: 24,
+          opacity: 0.96,
+          borderRadius: 32,
+          padding: const EdgeInsets.all(28),
+          borderColor: const Color(0xFF059669).withOpacity(0.5),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.elasticOut,
+                builder: (context, val, child) {
+                  return Transform.scale(
+                    scale: val,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF059669),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF059669).withOpacity(0.4),
+                            blurRadius: 28,
+                            spreadRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.check_rounded, color: Colors.white, size: 50),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "Payment Successful! 🎉",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF111827)),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Order #$orderNum Confirmed (₹${grandTotal.toStringAsFixed(0)})",
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFF059669), fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Sent to Central Dark Store for 3-minute packing & 10-min delivery.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 11, height: 1.3),
+              ),
+              const SizedBox(height: 20),
+              LiquidButton(
+                label: "Track Live Delivery ⚡",
+                icon: Icons.flash_on_rounded,
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  widget.onClearCart();
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => OrderTrackingScreen(
+                        orderId: orderId,
+                        orderNumber: orderNum,
+                        grandTotal: grandTotal,
+                        etaMinutes: _activeLocation.etaMinutes,
+                        deliveryAddress: "${_activeLocation.name}, ${_activeLocation.address}",
+                        destinationLatitude: _activeLocation.latitude,
+                        destinationLongitude: _activeLocation.longitude,
+                        items: orderedItems,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPaymentFailedDialog({required String reason}) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: GlassCard(
+          blur: 24,
+          opacity: 0.96,
+          borderRadius: 32,
+          padding: const EdgeInsets.all(28),
+          borderColor: Colors.redAccent.withOpacity(0.5),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.elasticOut,
+                builder: (context, val, child) {
+                  return Transform.scale(
+                    scale: val,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.redAccent,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.redAccent.withOpacity(0.4),
+                            blurRadius: 28,
+                            spreadRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.close_rounded, color: Colors.white, size: 50),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "Payment Unsuccessful ❌",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF111827)),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Text(
+                  reason,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.red.shade900, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Your cart is saved. Zero amount was debited from your account.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF059669),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                  label: const Text(
+                    "Retry Payment",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _handleCheckout() async {
     // 1. Mandatory Address Check: Only prompt if location is truly unset or placeholder
     bool isAddressUnset =
@@ -471,49 +659,17 @@ class _CartScreenState extends State<CartScreen> {
             grandTotal: grandTotal,
             onPaymentComplete: (result) {
               if (result.paid) {
-                // ✅ Payment confirmed by the backend — clear the cart and go to
-                // the live tracking screen with the animated bike map.
                 List<CartItemModel> orderedItems = List.from(widget.cartItems);
-                widget.onClearCart();
-
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => OrderTrackingScreen(
-                      orderId: orderId,
-                      orderNumber: orderNum,
-                      grandTotal: grandTotal,
-                      etaMinutes: _activeLocation.etaMinutes,
-                      deliveryAddress:
-                          "${_activeLocation.name}, ${_activeLocation.address}",
-                      destinationLatitude: _activeLocation.latitude,
-                      destinationLongitude: _activeLocation.longitude,
-                      items: orderedItems,
-                    ),
-                  ),
+                _showPaymentSuccessDialog(
+                  orderId: orderId,
+                  orderNum: orderNum,
+                  grandTotal: grandTotal,
+                  orderedItems: orderedItems,
                 );
               } else {
-                // ❌ Payment failed or not confirmed. The backend has already
-                // cancelled the order and restocked the inventory, so the cart
-                // is preserved and the user can retry immediately. Do NOT
-                // navigate to the tracking screen.
-                if (result.failed) {
-                  LiquidToast.show(
-                    context,
-                    message: result.failureReason ??
-                        "❌ Payment failed. Your cart is saved — please retry with a different payment method.",
-                    icon: Icons.cancel_rounded,
-                    accentColor: Colors.redAccent,
-                  );
-                } else {
-                  LiquidToast.show(
-                    context,
-                    message: result.failureReason ??
-                        "Payment not confirmed yet. Your cart is saved — please retry.",
-                    icon: Icons.warning_amber_rounded,
-                    accentColor: Colors.orangeAccent,
-                  );
-                }
+                final reason = result.failureReason ??
+                    "Payment was cancelled or unsuccessful. Your cart is saved — please retry.";
+                _showPaymentFailedDialog(reason: reason);
               }
             },
           ),

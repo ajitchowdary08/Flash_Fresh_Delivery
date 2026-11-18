@@ -116,11 +116,11 @@ def init_db():
         sync_prod(cat_aromatics.id, "Fresh Yellow Lemons (Nimmapakaya)", "Juicy, bright yellow lemons.", "https://ik.imagekit.io/Ganapathi/flash_fresh_fresh_yellow_lemons_nimmapakaya_600x600.jpg", False, [("4 Pcs Pack", 20.0, 15.0, 160)])
 
         # 5. Fresh Farm Milk & Dairy
-        sync_prod(cat_milk.id, "Fresh Farm Cow Milk", "Pure, fresh cow milk, pasteurized & chilled.", "https://ik.imagekit.io/Ganapathi/flash_fresh_cow_milk_600x600.jpg", False, [("Half Litre (500ml)", 30.0, 26.0, 200), ("1 Litre (1000ml)", 60.0, 50.0, 150)])
-        sync_prod(cat_milk.id, "Pure Buffalo Milk", "Thick, creamy pure buffalo milk.", "https://ik.imagekit.io/Ganapathi/flash_fresh_buffalo_milk_600x600.jpg", False, [("Half Litre (500ml)", 38.0, 32.0, 180), ("1 Litre (1000ml)", 75.0, 62.0, 120)])
+        sync_prod(cat_milk.id, "Fresh Farm Cow Milk", "Pure, fresh cow milk, pasteurized & chilled.", "https://ik.imagekit.io/Ganapathi/flash_fresh_cow_milk_600x600.jpg", False, [("500ml", 30.0, 26.0, 200), ("1 Litre", 60.0, 50.0, 150)])
+        sync_prod(cat_milk.id, "Pure Buffalo Milk", "Thick, creamy pure buffalo milk.", "https://ik.imagekit.io/Ganapathi/flash_fresh_buffalo_milk_600x600.jpg", False, [("500ml", 38.0, 32.0, 180), ("1 Litre", 75.0, 62.0, 120)])
 
         # 6. ONLY White Hen Eggs (Half Dozen, 1 Dozen & Saver Tray)
-        sync_prod(cat_eggs.id, "Farm Fresh Table White Hen Eggs", "Protein-rich, farm-fresh white hen eggs.", "https://ik.imagekit.io/Ganapathi/flash_fresh_farm_fresh_table_white_hen_eggs_600x600.jpg", False, [("Half Dozen (6 Pcs)", 45.0, 36.0, 150), ("1 Dozen (12 Pcs)", 90.0, 68.0, 100), ("Saver Tray (30 Pcs)", 225.0, 165.0, 40)])
+        sync_prod(cat_eggs.id, "Farm Fresh Table White Hen Eggs", "Protein-rich, farm-fresh white hen eggs.", "https://ik.imagekit.io/Ganapathi/flash_fresh_farm_fresh_table_white_hen_eggs_600x600.jpg", False, [("Half Dozen", 45.0, 36.0, 150), ("1 Dozen", 90.0, 68.0, 100), ("Saver Tray (30 Pcs)", 225.0, 165.0, 40)])
 
         # 7. Sunday Fresh Meat & Seafood
         sync_prod(cat_chicken.id, "Sunday Special Tender Chicken (Curry Cut)", "100% antibiotic-free, freshly cut on Sunday morning.", "https://ik.imagekit.io/Ganapathi/flash_fresh_sunday_special_tender_chicken_curry_cut_600x600.jpg", True, [("500g", 150.0, 125.0, 80), ("1kg", 290.0, 240.0, 50)])

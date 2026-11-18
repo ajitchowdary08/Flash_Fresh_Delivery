@@ -498,25 +498,54 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     return LiquidBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: const Text(
-            "Live Order Tracking",
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF111827),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF082219), Color(0xFF059669)],
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF059669).withOpacity(0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              centerTitle: true,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: const Text(
+                "Live Order Tracking",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  fontSize: 18,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.help_outline_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  onPressed: _showSupportSheet,
+                ),
+              ],
             ),
           ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(
-                Icons.help_outline_rounded,
-                color: Colors.black87,
-              ),
-              onPressed: _showSupportSheet,
-            ),
-          ],
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
@@ -1451,9 +1480,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               onPressed: () async {
                 Navigator.pop(ctx);
                 await ApiService.rateOrder(
-                  widget.orderId,
-                  productRating,
-                  reviewCtrl.text.trim(),
+                  orderId: widget.orderId,
+                  riderRating: riderRating,
+                  freshnessRating: productRating,
+                  review: reviewCtrl.text.trim(),
                 );
                 if (!mounted) return;
                 LiquidToast.show(

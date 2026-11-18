@@ -16,7 +16,8 @@ from app.services.payment_service import payment_service
 router = APIRouter(prefix="/orders", tags=["Orders & Real-Time Tracking"])
 
 class OrderRatingRequest(BaseModel):
-    rating: int # 1 to 5
+    rating: int = 5 # Rider speed rating
+    freshness_rating: int = 5 # Produce freshness rating
     review: str = ""
 
 # WebSocket Connection Manager for Live Order & Rider Tracking
@@ -291,18 +292,25 @@ async def cancel_order(order_id: str, db: Session = Depends(get_db)):
 @router.post("/{order_id}/rate")
 def rate_order(order_id: str, req: OrderRatingRequest, db: Session = Depends(get_db)):
     """
-    Submits 1-to-5 star rating and review feedback for a delivered order.
+    Submits 1-to-5 star rating for Rider Speed & Produce Freshness with review notes.
+    Saves feedback directly into database so Rider and Store Admin see it dynamically!
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    order.rider_rating = req.rating
+    order.freshness_rating = req.freshness_rating
+    order.review_notes = req.review
+    db.commit()
+
     return {
         "success": True,
         "order_id": order.id,
-        "rating": req.rating,
+        "rider_rating": req.rating,
+        "freshness_rating": req.freshness_rating,
         "review": req.review,
-        "message": "Thank you for rating your Flash Fresh Quick Commerce delivery!"
+        "message": "🎉 Thank you for rating your Flash Fresh delivery!"
     }
 
 @router.get("/history/{user_id}")
