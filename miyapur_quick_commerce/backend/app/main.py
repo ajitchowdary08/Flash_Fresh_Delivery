@@ -10,6 +10,7 @@ from app.api.v1.orders import router as orders_router
 from app.api.v1.payments import router as payments_router
 from app.api.v1.rider import router as rider_router
 from app.api.v1.store import router as store_router
+from app.api.v1.support import router as support_router
 
 init_db()
 
@@ -34,6 +35,7 @@ app.include_router(orders_router, prefix=settings.API_V1_STR)
 app.include_router(payments_router, prefix=settings.API_V1_STR)
 app.include_router(rider_router, prefix=settings.API_V1_STR)
 app.include_router(store_router, prefix=settings.API_V1_STR)
+app.include_router(support_router, prefix=settings.API_V1_STR)
 
 import os
 

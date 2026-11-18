@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/liquid_toast.dart';
+import 'help_support_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
@@ -1207,26 +1208,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return LiquidBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: const Text(
-            "Account",
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF111827),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF082219), Color(0xFF059669)],
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF059669).withOpacity(0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              centerTitle: true,
+              title: const Text(
+                "Profile",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  fontSize: 18,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.edit_note_rounded,
+                    size: 26,
+                    color: Colors.white,
+                  ),
+                  onPressed: _showEditProfileDialog,
+                ),
+              ],
             ),
           ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(
-                Icons.edit_note_rounded,
-                size: 26,
-                color: Color(0xFF111827),
-              ),
-              onPressed: _showEditProfileDialog,
-            ),
-          ],
         ),
         body: _isLoading
             ? const Center(
@@ -1649,7 +1674,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
+
+                      // 24x7 Help & Support Tile
+                      GlassCard(
+                        blur: 16,
+                        opacity: 0.9,
+                        borderRadius: 20,
+                        borderColor: Colors.grey.shade200,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                          leading: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF059669).withOpacity(0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.support_agent_rounded,
+                              color: Color(0xFF059669),
+                              size: 24,
+                            ),
+                          ),
+                          title: const Text(
+                            "24x7 Help & Support",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFF111827),
+                            ),
+                          ),
+                          subtitle: const Text(
+                            "Raise ticket, FAQs, WhatsApp & Instant Callback",
+                            style: TextStyle(fontSize: 11, color: Colors.black54),
+                          ),
+                          trailing: const Icon(
+                            Icons.chevron_right_rounded,
+                            color: Colors.black45,
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => HelpSupportScreen(
+                                  userId: widget.userId,
+                                  phone: widget.phone,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
 
                       // Logout Button
                       SizedBox(

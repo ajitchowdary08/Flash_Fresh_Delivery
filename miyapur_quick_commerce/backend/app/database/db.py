@@ -122,7 +122,7 @@ def init_db():
         # 6. ONLY White Hen Eggs (Half Dozen, 1 Dozen & Saver Tray)
         sync_prod(cat_eggs.id, "Farm Fresh Table White Hen Eggs", "Protein-rich, farm-fresh white hen eggs.", "https://ik.imagekit.io/Ganapathi/flash_fresh_farm_fresh_table_white_hen_eggs_600x600.jpg", False, [("Half Dozen (6 Pcs)", 45.0, 36.0, 150), ("1 Dozen (12 Pcs)", 90.0, 68.0, 100), ("Saver Tray (30 Pcs)", 225.0, 165.0, 40)])
 
-        # 6. Sunday Fresh Meat & Seafood
+        # 7. Sunday Fresh Meat & Seafood
         sync_prod(cat_chicken.id, "Sunday Special Tender Chicken (Curry Cut)", "100% antibiotic-free, freshly cut on Sunday morning.", "https://ik.imagekit.io/Ganapathi/flash_fresh_sunday_special_tender_chicken_curry_cut_600x600.jpg", True, [("500g", 150.0, 125.0, 80), ("1kg", 290.0, 240.0, 50)])
         sync_prod(cat_chicken.id, "Fresh Boneless Chicken Breast", "Cleaned, tender breast fillets.", "https://ik.imagekit.io/Ganapathi/flash_fresh_fresh_boneless_chicken_breast_600x600.jpg", True, [("500g", 210.0, 175.0, 40)])
         sync_prod(cat_fish.id, "Fresh Godavari Rohu Fish (Curry Cut)", "Fresh river fish, descaled and cut with head pieces.", "https://ik.imagekit.io/Ganapathi/flash_fresh_fresh_godavari_rohu_fish_curry_cut_600x600.jpg", True, [("500g", 220.0, 185.0, 30), ("1kg", 420.0, 360.0, 25)])

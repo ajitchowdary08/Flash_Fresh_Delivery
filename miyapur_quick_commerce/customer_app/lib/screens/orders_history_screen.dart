@@ -3,6 +3,7 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../widgets/glass_card.dart';
 import 'order_tracking_screen.dart';
+import 'help_support_screen.dart';
 
 class OrdersHistoryScreen extends StatefulWidget {
   final String userId;
@@ -43,10 +44,46 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
     return LiquidBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: const Text("My Orders", style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF111827))),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF082219), Color(0xFF059669)],
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF059669).withOpacity(0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              centerTitle: true,
+              leading: Navigator.canPop(context)
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+                      onPressed: () => Navigator.pop(context),
+                    )
+                  : null,
+              title: const Text(
+                "My Orders",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  fontSize: 18,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          ),
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFF059669)))
@@ -176,35 +213,50 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                                         ),
                                       ],
                                     ),
-                                    if (isLive)
-                                      ElevatedButton.icon(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => OrderTrackingScreen(
-                                                orderId: order.orderId,
-                                                orderNumber: order.orderNumber,
-                                                grandTotal: order.grandTotal,
-                                                etaMinutes: order.deliveryEtaMins,
-                                                deliveryAddress: order.deliveryAddress,
-                                                destinationLatitude: order.latitude,
-                                                destinationLongitude: order.longitude,
-                                                items: const [],
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.support_agent_rounded, color: Color(0xFF059669), size: 20),
+                                          tooltip: "Need Help?",
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => HelpSupportScreen(
+                                                  userId: widget.userId,
+                                                  orderId: order.orderId,
+                                                ),
                                               ),
-                                            ),
-                                          );
-                                        },
-                                        icon: const Icon(Icons.flash_on_rounded, size: 14, color: Colors.white),
-                                        label: const Text("Track Live", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF059669),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                            );
+                                          },
                                         ),
-                                      )
-                                    else
-                                      Row(
-                                        children: [
+                                        if (isLive)
+                                          ElevatedButton.icon(
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) => OrderTrackingScreen(
+                                                    orderId: order.orderId,
+                                                    orderNumber: order.orderNumber,
+                                                    grandTotal: order.grandTotal,
+                                                    etaMinutes: order.deliveryEtaMins,
+                                                    deliveryAddress: order.deliveryAddress,
+                                                    destinationLatitude: order.latitude,
+                                                    destinationLongitude: order.longitude,
+                                                    items: const [],
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.flash_on_rounded, size: 14, color: Colors.white),
+                                            label: const Text("Track Live", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF059669),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                            ),
+                                          )
+                                        else ...[
                                           IconButton(
                                             icon: const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
                                             onPressed: () => _showRatingDialog(order.orderId),
@@ -260,7 +312,8 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                                             ),
                                           ),
                                         ],
-                                      ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ],

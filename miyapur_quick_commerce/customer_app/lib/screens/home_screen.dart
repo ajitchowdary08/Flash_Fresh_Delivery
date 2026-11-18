@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/models.dart';
@@ -67,11 +68,38 @@ class _HomeScreenState extends State<HomeScreen> {
     {"id": "eggs", "label": "Eggs", "icon": "🥚", "bg": "0xFFFEF3C7"},
   ];
 
+  Timer? _dealTimer;
+  int _currentDealIdx = 0;
+
   @override
   void initState() {
     super.initState();
     _isSundayMode = DateTime.now().weekday == 7;
     _loadProducts();
+    _startDealAutoSlide();
+  }
+
+  void _startDealAutoSlide() {
+    _dealTimer?.cancel();
+    _dealTimer = Timer.periodic(const Duration(milliseconds: 3500), (timer) {
+      if (!mounted) return;
+      if (_dealPageController.hasClients) {
+        int nextIdx = (_currentDealIdx + 1) % _dealBanners.length;
+        _dealPageController.animateToPage(
+          nextIdx,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOutCubic,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _dealTimer?.cancel();
+    _dealPageController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _loadProducts() async {
@@ -195,6 +223,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Veg / Non-Veg Toggle Header Bar
                 _buildVegNonVegToggleBar(),
+
+                _buildPromotionalDealsCarousel(),
 
                 // Visual Shop Categories Icons Grid/Slider
                 _buildShopCategoryIconsBar(),
@@ -593,6 +623,131 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  final PageController _dealPageController = PageController();
+
+  final List<Map<String, String>> _dealBanners = const [
+    {
+      "tag": "⚡ 10-MIN EXPRESS",
+      "title": "Superfast Express Delivery",
+      "subtitle": "Get fresh veggies & milk in 10-15 mins",
+      "badge": "FREE DELIVERY ABOVE ₹199",
+      "color1": "0xFF059669",
+      "color2": "0xFF047857",
+      "icon": "🚀",
+    },
+    {
+      "tag": "🥬 100% FARM FRESH",
+      "title": "Daily Morning Harvest",
+      "subtitle": "Handpicked fresh vegetables & greens",
+      "badge": "UP TO 35% OFF TODAY",
+      "color1": "0xFF15803D",
+      "color2": "0xFF166534",
+      "icon": "🥦",
+    },
+    {
+      "tag": "🍗 SUNDAY MEAT SPECIAL",
+      "title": "Fresh Meat & Fresh Fish",
+      "subtitle": "100% Antibiotic-free tender chicken & prawns",
+      "badge": "PRE-ORDER FOR SUNDAY",
+      "color1": "0xFFB91C1C",
+      "color2": "0xFF991B1B",
+      "icon": "🍖",
+    },
+  ];
+
+  Widget _buildPromotionalDealsCarousel() {
+    return Container(
+      height: 94,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: PageView.builder(
+        controller: _dealPageController,
+        itemCount: _dealBanners.length,
+        onPageChanged: (idx) => setState(() => _currentDealIdx = idx),
+        itemBuilder: (context, index) {
+          final deal = _dealBanners[index];
+          final c1 = Color(int.parse(deal["color1"]!));
+          final c2 = Color(int.parse(deal["color2"]!));
+
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [c1, c2],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: c1.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                )
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          deal["tag"]!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 9,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        deal["title"]!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        deal["subtitle"]!,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    deal["icon"]!,
+                    style: const TextStyle(fontSize: 24),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
