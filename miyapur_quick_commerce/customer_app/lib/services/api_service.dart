@@ -722,10 +722,12 @@ class ApiService {
         List<ProductModel> products = rawList
             .map((x) => ProductModel.fromJson(x))
             .toList();
-        return {
-          "is_sunday": body['is_sunday'] ?? forceSunday,
-          "products": products,
-        };
+        if (products.isNotEmpty) {
+          return {
+            "is_sunday": body['is_sunday'] ?? forceSunday,
+            "products": products,
+          };
+        }
       }
     } catch (_) {}
 

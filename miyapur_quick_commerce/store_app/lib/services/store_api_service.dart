@@ -105,28 +105,11 @@ class StoreApiService {
       final res = await http.get(Uri.parse("$baseUrl/store/inventory")).timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
         List data = jsonDecode(res.body);
-        if (data.isNotEmpty) {
-          return List<Map<String, dynamic>>.from(data);
-        }
+        return List<Map<String, dynamic>>.from(data);
       }
     } catch (_) {}
 
-    // Robust Inventory Fallback
-    return [
-      {"product_id": "p1", "variant_id": "v1", "product_name": "Purple Brinjal (Vankaya)", "weight_label": "500g", "is_sunday_only": false, "price": 22.0, "stock_qty": 65},
-      {"product_id": "p2", "variant_id": "v2", "product_name": "Fresh Cluster Beans (Goruchikkudu)", "weight_label": "250g", "is_sunday_only": false, "price": 18.0, "stock_qty": 60},
-      {"product_id": "p3", "variant_id": "v3", "product_name": "Fresh Red Onions (Kurnool)", "weight_label": "1kg", "is_sunday_only": false, "price": 36.0, "stock_qty": 200},
-      {"product_id": "p3", "variant_id": "v3_2", "product_name": "Fresh Red Onions (Kurnool)", "weight_label": "2kg (Saver Pack)", "is_sunday_only": false, "price": 68.0, "stock_qty": 80},
-      {"product_id": "p4", "variant_id": "v4", "product_name": "New Crop Fresh Potatoes (Aloo)", "weight_label": "1kg", "is_sunday_only": false, "price": 32.0, "stock_qty": 180},
-      {"product_id": "p4", "variant_id": "v4_2", "product_name": "New Crop Fresh Potatoes (Aloo)", "weight_label": "2kg", "is_sunday_only": false, "price": 60.0, "stock_qty": 90},
-      {"product_id": "p5", "variant_id": "v5", "product_name": "Green Tender Ladies Finger (Bhendi)", "weight_label": "250g", "is_sunday_only": false, "price": 15.0, "stock_qty": 60},
-      {"product_id": "p6", "variant_id": "v6", "product_name": "Fresh Farm Hybrid Tomatoes", "weight_label": "500g", "is_sunday_only": false, "price": 28.0, "stock_qty": 150},
-      {"product_id": "p7", "variant_id": "v7", "product_name": "Fresh Farm Cow Milk", "weight_label": "1 Litre", "is_sunday_only": false, "price": 50.0, "stock_qty": 150},
-      {"product_id": "p8", "variant_id": "v8", "product_name": "Pure Buffalo Milk", "weight_label": "1 Litre", "is_sunday_only": false, "price": 62.0, "stock_qty": 120},
-      {"product_id": "p9", "variant_id": "v9", "product_name": "Farm Fresh Table White Hen Eggs", "weight_label": "1 Dozen", "is_sunday_only": false, "price": 68.0, "stock_qty": 100},
-      {"product_id": "p10", "variant_id": "v10", "product_name": "Sunday Special Tender Chicken (Curry Cut)", "weight_label": "1kg", "is_sunday_only": true, "price": 240.0, "stock_qty": 50},
-      {"product_id": "p11", "variant_id": "v11", "product_name": "Fresh Godavari Rohu Fish (Curry Cut)", "weight_label": "1kg", "is_sunday_only": true, "price": 360.0, "stock_qty": 25},
-    ];
+    return [];
   }
 
   // 8. Update Stock Qty
