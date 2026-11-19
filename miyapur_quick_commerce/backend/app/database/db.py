@@ -17,21 +17,66 @@ def get_db():
 def init_db():
     Base.metadata.create_all(bind=engine)
 
-    # Lightweight additive migration: add columns that were introduced to
-    # already-existing tables (users.role, users.updated_at, orders.updated_at,
+    # Automatic additive migration: add columns that were introduced to
+    # already-existing tables (users.role, promo_codes.usage_count, orders.updated_at,
     # riders.user_id, etc.) without dropping data. Compatible with SQLite & Postgres.
     from sqlalchemy import inspect, text
     try:
         inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+        is_pg = engine.dialect.name == "postgresql"
+
         def add_column_if_missing(table_name, column_name, column_ddl):
             try:
                 if inspector.has_table(table_name):
                     cols = [c["name"] for c in inspector.get_columns(table_name)]
                     if column_name not in cols:
                         with engine.begin() as conn:
-                            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_ddl}"))
+                            if is_pg:
+                                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_name} {column_ddl}"))
+                            else:
+                                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_ddl}"))
             except Exception as ex:
                 print(f"Migration: Could not add column {column_name} to {table_name}: {ex}")
+
+        # Dynamic pass: inspect every model table and auto-add any missing columns
+        for table_name, table in Base.metadata.tables.items():
+            if table_name in existing_tables:
+                try:
+                    existing_cols = {c["name"] for c in inspector.get_columns(table_name)}
+                    for col in table.columns:
+                        if col.name not in existing_cols:
+                            col_type = col.type.compile(engine.dialect)
+                            if is_pg:
+                                ddl = f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col.name} {col_type}"
+                            else:
+                                ddl = f"ALTER TABLE {table_name} ADD COLUMN {col.name} {col_type}"
+
+                            if col.default is not None and hasattr(col.default, 'arg') and isinstance(col.default.arg, (int, float, str, bool)):
+                                val = col.default.arg
+                                if isinstance(val, bool):
+                                    ddl += " DEFAULT TRUE" if (is_pg and val) else (" DEFAULT FALSE" if is_pg else (" DEFAULT 1" if val else " DEFAULT 0"))
+                                elif isinstance(val, str):
+                                    ddl += f" DEFAULT '{val}'"
+                                else:
+                                    ddl += f" DEFAULT {val}"
+
+                            with engine.begin() as conn:
+                                conn.execute(text(ddl))
+                            print(f"Auto-migration: Added column {col.name} to {table_name}")
+                except Exception as table_mig_ex:
+                    print(f"Auto-migration check failed for {table_name}: {table_mig_ex}")
+
+        # Explicit safety pass for known table schema additions
+        # Promo codes table updates
+        add_column_if_missing("promo_codes", "usage_count", "INTEGER DEFAULT 0")
+        add_column_if_missing("promo_codes", "valid_from", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        add_column_if_missing("promo_codes", "valid_until", "TIMESTAMP")
+        add_column_if_missing("promo_codes", "description", "VARCHAR DEFAULT ''")
+        add_column_if_missing("promo_codes", "is_active", "BOOLEAN DEFAULT TRUE")
+        add_column_if_missing("promo_codes", "discount_percent", "FLOAT DEFAULT 0.0")
+        add_column_if_missing("promo_codes", "max_discount", "FLOAT DEFAULT 0.0")
+        add_column_if_missing("promo_codes", "min_order", "FLOAT DEFAULT 0.0")
 
         # Users table updates
         add_column_if_missing("users", "role", "VARCHAR DEFAULT 'CUSTOMER'")
@@ -54,6 +99,12 @@ def init_db():
         add_column_if_missing("orders", "review_notes", "TEXT")
         add_column_if_missing("orders", "delivery_otp", "VARCHAR DEFAULT '4921'")
         add_column_if_missing("orders", "is_sunday_meat_order", "BOOLEAN DEFAULT FALSE")
+        add_column_if_missing("orders", "scheduled_slot", "VARCHAR DEFAULT '10-15 Mins Quick Delivery'")
+        add_column_if_missing("orders", "delivery_instructions", "VARCHAR DEFAULT ''")
+        add_column_if_missing("orders", "idempotency_key", "VARCHAR")
+        add_column_if_missing("orders", "cf_order_id", "VARCHAR")
+        add_column_if_missing("orders", "payment_session_id", "VARCHAR")
+        add_column_if_missing("orders", "pg_payment_id", "VARCHAR")
 
         # Riders table updates
         add_column_if_missing("riders", "user_id", "VARCHAR")
@@ -68,6 +119,13 @@ def init_db():
         add_column_if_missing("riders", "cod_cash_in_hand", "FLOAT DEFAULT 0.0")
         add_column_if_missing("riders", "created_at", "TIMESTAMP")
         add_column_if_missing("riders", "updated_at", "TIMESTAMP")
+
+        # Addresses table updates
+        add_column_if_missing("addresses", "house_number", "VARCHAR DEFAULT ''")
+        add_column_if_missing("addresses", "landmark", "VARCHAR DEFAULT ''")
+        add_column_if_missing("addresses", "distance_km", "FLOAT DEFAULT 0.0")
+        add_column_if_missing("addresses", "is_serviceable", "BOOLEAN DEFAULT TRUE")
+        add_column_if_missing("addresses", "is_default", "BOOLEAN DEFAULT FALSE")
     except Exception as e:
         print(f"Migration error during init_db: {e}")
 
@@ -231,21 +289,26 @@ def init_db():
         # Seed promo codes (previously a hardcoded Python dict in catalog.py).
         # ----------------------------------------------------------------------
         def get_or_create_promo(code, desc, pct, mx, mn):
-            p = db.query(PromoCode).filter(PromoCode.code == code).first()
-            if p:
+            try:
+                p = db.query(PromoCode).filter(PromoCode.code == code).first()
+                if p:
+                    return p
+                p = PromoCode(
+                    code=code,
+                    description=desc,
+                    discount_percent=pct,
+                    max_discount=mx,
+                    min_order=mn,
+                    is_active=True,
+                )
+                db.add(p)
+                db.commit()
+                db.refresh(p)
                 return p
-            p = PromoCode(
-                code=code,
-                description=desc,
-                discount_percent=pct,
-                max_discount=mx,
-                min_order=mn,
-                is_active=True,
-            )
-            db.add(p)
-            db.commit()
-            db.refresh(p)
-            return p
+            except Exception as pe:
+                db.rollback()
+                print(f"Warning: Could not seed promo code {code}: {pe}")
+                return None
 
         get_or_create_promo("ZEPTO50", "Flat 20% OFF up to ₹50 on orders above ₹149", 20.0, 50.0, 149.0)
         get_or_create_promo("FLASH100", "Flat 25% OFF up to ₹100 on Flash Mega Orders above ₹299", 25.0, 100.0, 299.0)
@@ -256,17 +319,21 @@ def init_db():
         # manager logs in via OTP on this number. Default creds surfaced in the
         # README. Idempotent.
         # ----------------------------------------------------------------------
-        mgr = db.query(UserModel).filter(UserModel.phone == "9000011111").first()
-        if not mgr:
-            mgr = UserModel(
-                id="mgr_default_01",
-                phone="9000011111",
-                name="Store Manager",
-                role="MANAGER",
-                is_active=True,
-            )
-            db.add(mgr)
-            db.commit()
+        try:
+            mgr = db.query(UserModel).filter(UserModel.phone == "9000011111").first()
+            if not mgr:
+                mgr = UserModel(
+                    id="mgr_default_01",
+                    phone="9000011111",
+                    name="Store Manager",
+                    role="MANAGER",
+                    is_active=True,
+                )
+                db.add(mgr)
+                db.commit()
+        except Exception as me:
+            db.rollback()
+            print(f"Warning: Could not seed default manager: {me}")
 
     finally:
         db.close()
