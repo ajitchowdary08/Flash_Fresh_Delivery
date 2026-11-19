@@ -40,6 +40,83 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
     });
   }
 
+  Future<void> _handleReorder(OrderHistoryModel order) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Checking item availability in catalog..."),
+        duration: Duration(milliseconds: 800),
+      ),
+    );
+
+    final catalogRes = await ApiService.getProducts();
+    final List<ProductModel> catalog =
+        (catalogRes['products'] as List<ProductModel>?) ?? [];
+
+    final List<CartItemModel> cartItems = [];
+    final List<String> missingItems = [];
+
+    for (final item in order.items) {
+      ProductModel? matchedProduct;
+      try {
+        matchedProduct = catalog.firstWhere(
+          (p) => p.name.trim().toLowerCase() == item.name.trim().toLowerCase(),
+        );
+      } catch (_) {
+        matchedProduct = null;
+      }
+
+      if (matchedProduct != null) {
+        ProductVariantModel? matchedVariant;
+        try {
+          matchedVariant = matchedProduct.variants.firstWhere(
+            (v) =>
+                v.weightLabel.trim().toLowerCase() ==
+                item.variant.trim().toLowerCase(),
+          );
+        } catch (_) {
+          matchedVariant = matchedProduct.variants.isNotEmpty
+              ? matchedProduct.variants.first
+              : null;
+        }
+
+        if (matchedVariant != null) {
+          cartItems.add(CartItemModel(
+            product: matchedProduct,
+            selectedVariant: matchedVariant,
+            quantity: item.quantity,
+          ));
+        } else {
+          missingItems.add("${item.name} (${item.variant})");
+        }
+      } else {
+        missingItems.add("${item.name} (${item.variant})");
+      }
+    }
+
+    if (!mounted) return;
+
+    if (cartItems.isNotEmpty) {
+      widget.onReorder(cartItems);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(missingItems.isEmpty
+              ? "⚡ All items reordered & added to basket!"
+              : "⚡ ${cartItems.length} items added to basket (${missingItems.length} unavailable)"),
+          backgroundColor: const Color(0xFF059669),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "None of the items from this order are currently available in the catalog.",
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return LiquidBackground(
@@ -263,48 +340,7 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                                             onPressed: () => _showRatingDialog(order.orderId),
                                           ),
                                           OutlinedButton.icon(
-                                            onPressed: () {
-                                              final cartItems = order.items.map((item) {
-                                                return CartItemModel(
-                                                  product: ProductModel(
-                                                    id: "reorder_${item.name.hashCode}",
-                                                    categoryId: "cat_veg",
-                                                    name: item.name,
-                                                    description: "",
-                                                    imageUrl: "",
-                                                    isSundayOnly: false,
-                                                    deliveryMode: "LIVE_DELIVERY",
-                                                    deliveryLabel: "10-15 Mins Quick Delivery",
-                                                    variants: [
-                                                      ProductVariantModel(
-                                                        id: "v_${item.variant.hashCode}",
-                                                        weightLabel: item.variant,
-                                                        mrp: item.unitPrice * 1.2,
-                                                        price: item.unitPrice,
-                                                        stockQty: 100,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  selectedVariant: ProductVariantModel(
-                                                    id: "v_${item.variant.hashCode}",
-                                                    weightLabel: item.variant,
-                                                    mrp: item.unitPrice * 1.2,
-                                                    price: item.unitPrice,
-                                                    stockQty: 100,
-                                                  ),
-                                                  quantity: item.quantity,
-                                                );
-                                              }).toList();
-
-                                              widget.onReorder(cartItems);
-
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text("⚡ Items reordered & added to basket!"),
-                                                  backgroundColor: Color(0xFF059669),
-                                                ),
-                                              );
-                                            },
+                                            onPressed: () => _handleReorder(order),
                                             icon: const Icon(Icons.replay_rounded, size: 14, color: Color(0xFF059669)),
                                             label: const Text("Repeat Order", style: TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 12)),
                                             style: OutlinedButton.styleFrom(

@@ -45,7 +45,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
   // Meat Weigh Modal State
   String? _weighOrderId;
   String? _weighOrderNum;
-  final _weighWeightCtrl = TextEditingController(text: "520");
+  final _weighWeightCtrl = TextEditingController();
   String _cutStyle = "Curry Cut (Medium with bone)";
   bool _turmericWash = true;
   bool _skinless = true;
@@ -271,9 +271,19 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
               onPressed: () async {
-                Navigator.pop(ctx);
                 final messenger = ScaffoldMessenger.of(context);
-                final w = double.tryParse(_weighWeightCtrl.text) ?? 520;
+                final weightText = _weighWeightCtrl.text.trim();
+                final w = double.tryParse(weightText);
+                if (w == null || w <= 0) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text("⚠️ Please enter a valid positive weight in grams."),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(ctx);
                 final res = await StoreApiService.recordMeatWeight(
                   orderId: _weighOrderId!,
                   weightG: w,
@@ -709,9 +719,9 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                    onPressed: () => _showSlipModal(o["order_number"], o["delivery_address"], o["delivery_otp"] ?? "4921", items),
+                    onPressed: () => _showSlipModal(o["order_number"], o["delivery_address"], o["delivery_otp"] ?? "----", items),
                     icon: const Icon(Icons.print_rounded, size: 16),
-                    label: Text("Print Thermal Slip (PIN: ${o['delivery_otp'] ?? '4921'})", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    label: Text("Print Thermal Slip (PIN: ${o['delivery_otp'] ?? '----'})", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -780,7 +790,17 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD97706), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               onPressed: () async {
-                final w = double.tryParse(_weighWeightCtrl.text) ?? 520;
+                final weightText = _weighWeightCtrl.text.trim();
+                final w = double.tryParse(weightText);
+                if (w == null || w <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("⚠️ Please enter a valid weight in grams before saving."),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
+                }
                 if (_weighOrderId == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

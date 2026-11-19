@@ -180,6 +180,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
     });
   }
 
+  bool _isAccepting = false;
+
   void _dismissAlert(RiderOrderModel order) {
     HapticFeedback.lightImpact();
     _countdownTimer?.cancel();
@@ -187,9 +189,13 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
       _dismissedOrderIds.add(order.orderId);
       _activeAlertOrder = null;
     });
+    // Inform backend that rider passed/rejected the order so it can be reassigned
+    RiderApiService.rejectOrder(order.orderId, "Rider passed alert");
   }
 
   void _handleAcceptOrder(RiderOrderModel order) async {
+    if (_isAccepting) return;
+    _isAccepting = true;
     HapticFeedback.heavyImpact();
     _countdownTimer?.cancel();
     setState(() {
@@ -197,32 +203,38 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
       _activeAlertOrder = null;
     });
 
-    final res = await RiderApiService.acceptOrder(order.orderId);
-    if (!mounted) return;
-    if (res["success"] == true) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TripScreen(
-            order: order,
-            onTripCompleted: () {
-              _loadRiderData();
-              setState(() {
-                _availableOrders.removeWhere((o) => o.orderId == order.orderId);
-                _dismissedOrderIds.add(order.orderId);
-              });
-            },
+    try {
+      final res = await RiderApiService.acceptOrder(order.orderId);
+      if (!mounted) return;
+      if (res["success"] == true) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TripScreen(
+              order: order,
+              onTripCompleted: () {
+                _loadRiderData();
+                setState(() {
+                  _availableOrders.removeWhere((o) => o.orderId == order.orderId);
+                  _dismissedOrderIds.add(order.orderId);
+                });
+              },
+            ),
           ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res["message"] ?? "Order acceptance failed."),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res["message"] ?? "Order acceptance failed."),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isAccepting = false);
+      }
     }
   }
 
@@ -446,12 +458,13 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
                 ),
                 _buildDiagnosticChip(
                   icon: Icons.gps_fixed_rounded,
-                  label: "GPS: High (3m)",
+                  label: "GPS: Active",
                   color: const Color(0xFF00C853),
                 ),
                 _buildDiagnosticChip(
-                  icon: Icons.battery_charging_full_rounded,
-                  label: "86% Batt",
+                  icon: Icons.bolt_rounded,
+                  label: "Central Radar",
+                  color: const Color(0xFFFC8019),
                 ),
               ],
             ),
@@ -799,7 +812,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
               ),
               const SizedBox(height: 4),
               const Text(
-                "You are priority #1 in Central Zone queue",
+                "Central Zone Live Dispatch Active",
                 style: TextStyle(color: Colors.white60, fontSize: 11),
               ),
             ],

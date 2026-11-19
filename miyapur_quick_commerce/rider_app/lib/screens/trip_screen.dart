@@ -35,7 +35,7 @@ class _TripScreenState extends State<TripScreen> {
 
   // Bag verification checklist
   late List<bool> _checkedItems;
-  bool _sealVerified = true;
+  bool _sealVerified = false;
   bool _cashCollected = false;
 
   // Live GPS hardware streaming & sync
@@ -47,7 +47,7 @@ class _TripScreenState extends State<TripScreen> {
   @override
   void initState() {
     super.initState();
-    _checkedItems = List.generate(widget.order.items.length, (_) => true);
+    _checkedItems = List.generate(widget.order.items.length, (_) => false);
 
     if (widget.order.status == 'OUT_FOR_DELIVERY') {
       _stage = 2;
@@ -321,9 +321,38 @@ class _TripScreenState extends State<TripScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F1118),
-      appBar: AppBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E2130),
+            title: const Text("Exit Active Trip?", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            content: const Text(
+              "You have an ongoing delivery trip. Exiting will return you to the radar, but the delivery must still be completed.",
+              style: TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Stay on Trip", style: TextStyle(color: Color(0xFFFC8019))),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text("Exit to Radar", style: TextStyle(color: Colors.white54)),
+              ),
+            ],
+          ),
+        );
+        if (shouldExit == true && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0F1118),
+        appBar: AppBar(
         backgroundColor: const Color(0xFF161822),
         elevation: 0,
         title: Column(
@@ -388,8 +417,9 @@ class _TripScreenState extends State<TripScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildStageProgressIndicator() {
     final stages = ["Hub", "Verify", "Ride", "Handover"];

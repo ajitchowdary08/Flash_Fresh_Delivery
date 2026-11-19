@@ -181,12 +181,21 @@ class _AuthScreenState extends State<AuthScreen> {
             firebaseUid: "firebase_auto_${DateTime.now().millisecondsSinceEpoch}",
           );
           if (!mounted) return;
-          widget.onLoginSuccess(
-            rawPhone,
-            backendUser['name'] ?? "Customer",
-            backendUser['user_id'] ?? "usr_firebase_auto",
-            backendUser['token'] ?? "",
-          );
+          if (backendUser['success'] == true) {
+            widget.onLoginSuccess(
+              rawPhone,
+              backendUser['name'] ?? "Customer",
+              backendUser['user_id'] ?? "usr_firebase_auto",
+              backendUser['token'] ?? "",
+            );
+          } else {
+            LiquidToast.show(
+              context,
+              message: backendUser['error'] ?? "Failed to sync with backend",
+              icon: Icons.error_outline_rounded,
+              accentColor: Colors.redAccent,
+            );
+          }
         },
       );
       return;
@@ -237,19 +246,29 @@ class _AuthScreenState extends State<AuthScreen> {
             firebaseUid: userCred!.user!.uid,
           );
           if (!mounted) return;
-          LiquidToast.show(
-            context,
-            message: "🎉 Welcome back, ${backendUser['name'] ?? 'Customer'}!",
-            icon: Icons.check_circle_rounded,
-            accentColor: const Color(0xFF059669),
-          );
-          widget.onLoginSuccess(
-            _phoneController.text.trim(),
-            backendUser['name'] ?? "Customer",
-            backendUser['user_id'] ?? userCred.user!.uid,
-            backendUser['token'] ?? "",
-          );
-          return;
+          if (backendUser['success'] == true) {
+            LiquidToast.show(
+              context,
+              message: "🎉 Welcome back, ${backendUser['name'] ?? 'Customer'}!",
+              icon: Icons.check_circle_rounded,
+              accentColor: const Color(0xFF059669),
+            );
+            widget.onLoginSuccess(
+              _phoneController.text.trim(),
+              backendUser['name'] ?? "Customer",
+              backendUser['user_id'] ?? userCred.user!.uid,
+              backendUser['token'] ?? "",
+            );
+            return;
+          } else {
+            LiquidToast.show(
+              context,
+              message: backendUser['error'] ?? "Failed to sync user session with backend",
+              icon: Icons.error_outline_rounded,
+              accentColor: Colors.redAccent,
+            );
+            return;
+          }
         }
       } catch (e) {
         if (!mounted) return;

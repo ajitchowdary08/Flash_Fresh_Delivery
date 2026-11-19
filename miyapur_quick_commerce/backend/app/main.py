@@ -108,3 +108,33 @@ def root():
         "store_manager_dashboard": "https://flash-fresh.onrender.com/store",
         "interactive_api_docs": "https://flash-fresh.onrender.com/docs"
     }
+
+@app.get("/health")
+@app.get(f"{settings.API_V1_STR}/health")
+def health_check():
+    from app.database.db import SessionLocal
+    from app.models.models import Order, Product
+    from sqlalchemy import text
+    db_ok = False
+    active_orders = 0
+    total_products = 0
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db_ok = True
+        active_orders = db.query(Order).filter(Order.status.in_(["PLACED", "PACKED", "OUT_FOR_DELIVERY"])).count()
+        total_products = db.query(Product).count()
+        db.close()
+    except Exception:
+        db_ok = False
+
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "environment": settings.ENVIRONMENT,
+        "database": "connected" if db_ok else "disconnected",
+        "dev_otp_bypass": getattr(settings, "DEV_OTP_BYPASS", False),
+        "sms_configured": bool(getattr(settings, "SMS_API_KEY", None)),
+        "cashfree_env": getattr(settings, "CASHFREE_ENV", "sandbox"),
+        "active_orders": active_orders,
+        "total_products": total_products,
+    }

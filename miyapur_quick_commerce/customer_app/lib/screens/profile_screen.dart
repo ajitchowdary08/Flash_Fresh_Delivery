@@ -319,36 +319,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           final newName = nameCtrl.text.trim();
                           final newEmail = emailCtrl.text.trim();
                           Navigator.pop(ctx);
-                          await ApiService.updateUserProfile(
+                          final ok = await ApiService.updateUserProfile(
                             widget.userId,
                             newName,
                             newEmail,
                           );
-                          if (newName.isNotEmpty) {
-                            widget.onProfileUpdated?.call(newName);
-                          }
                           if (!mounted) return;
-                          setState(() {
-                            _profile = UserProfileModel(
-                              id: widget.userId,
-                              name: newName.isNotEmpty
-                                  ? newName
-                                  : (widget.name),
-                              phone: widget.phone,
-                              email: newEmail,
-                              totalOrders: _profile?.totalOrders ?? 0,
-                              savedAddressesCount:
-                                  _profile?.savedAddressesCount ?? 1,
-                              memberSince:
-                                  _profile?.memberSince ?? "November 2026",
+                          if (ok) {
+                            if (newName.isNotEmpty) {
+                              widget.onProfileUpdated?.call(newName);
+                            }
+                            setState(() {
+                              _profile = UserProfileModel(
+                                id: widget.userId,
+                                name: newName.isNotEmpty
+                                    ? newName
+                                    : (widget.name),
+                                phone: widget.phone,
+                                email: newEmail,
+                                totalOrders: _profile?.totalOrders ?? 0,
+                                savedAddressesCount:
+                                    _profile?.savedAddressesCount ?? 1,
+                                memberSince:
+                                    _profile?.memberSince ?? "November 2026",
+                              );
+                            });
+                            LiquidToast.show(
+                              context,
+                              message: "👤 Profile details saved successfully",
+                              icon: Icons.person_rounded,
+                              accentColor: const Color(0xFF059669),
                             );
-                          });
-                          LiquidToast.show(
-                            context,
-                            message: "👤 Profile details saved successfully",
-                            icon: Icons.person_rounded,
-                            accentColor: const Color(0xFF059669),
-                          );
+                          } else {
+                            LiquidToast.show(
+                              context,
+                              message: "⚠️ Could not save profile to server. Please retry.",
+                              icon: Icons.error_outline_rounded,
+                              accentColor: Colors.redAccent,
+                            );
+                          }
                         },
                         icon: const Icon(
                           Icons.check_rounded,

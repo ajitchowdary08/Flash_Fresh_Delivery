@@ -257,7 +257,7 @@ def create_order(
         new_order.items.append(order_item)
 
     user = db.query(User).filter(User.id == req.user_id).first()
-    customer_phone = user.phone if (user and user.phone) else "9966114243"
+    customer_phone = user.phone if (user and user.phone) else "9999999999"
     customer_name = user.name if (user and user.name) else "Customer"
     customer_id = user.id if user else "cust_user"
 

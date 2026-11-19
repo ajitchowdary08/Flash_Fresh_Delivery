@@ -74,7 +74,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
 
   Timer? _pollingTimer;
   String _currentStatus = "PLACED";
-  String _deliveryOtp = "4921";
+  String _deliveryOtp = "----";
   int _etaMins = 12;
   Map<String, dynamic>? _riderInfo;
   bool _followRider = false;
@@ -463,7 +463,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             _bikeIcon ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         infoWindow: InfoWindow(
-          title: "⚡ ${_riderInfo?["name"] ?? "Ravi Kumar"} (Hero Electric)",
+          title: "⚡ ${_riderInfo?["name"] ?? "Delivery Partner"}",
           snippet: "Arriving in ~$_etaMins mins",
         ),
       );
@@ -1091,8 +1091,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
   }
 
   Widget _buildRiderCard() {
-    final name = _riderInfo?["name"] ?? "Ravi Kumar";
-    final vehicle = _riderInfo?["vehicle"] ?? "Hero Electric (TS 07 EK 4921)";
+    final hasRider = _riderInfo != null && _riderInfo!["name"] != null;
+    final name = hasRider ? _riderInfo!["name"].toString() : "Assigning Delivery Partner...";
+    final vehicle = hasRider ? (_riderInfo!["vehicle"]?.toString() ?? "Central Fleet") : "Assigned once order is packed";
+    final phone = _riderInfo?["phone"]?.toString() ?? "";
 
     return GlassCard(
       blur: 16,
@@ -1137,7 +1139,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      "4.9 • Central Fleet Partner",
+                      hasRider ? "Central Fleet Partner" : "Standby for assignment",
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey.shade700,
@@ -1149,25 +1151,26 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               ],
             ),
           ),
-          IconButton(
-            icon: CircleAvatar(
-              backgroundColor: const Color(0xFF059669),
-              child: const Icon(
-                Icons.call_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    "Calling Fleet Partner $name (+91 98480 12345)...",
-                  ),
+          if (hasRider && phone.isNotEmpty)
+            IconButton(
+              icon: const CircleAvatar(
+                backgroundColor: Color(0xFF059669),
+                child: Icon(
+                  Icons.call_rounded,
+                  color: Colors.white,
+                  size: 18,
                 ),
-              );
-            },
-          ),
+              ),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      "Calling Partner $name ($phone)...",
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -1598,15 +1601,23 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 "Call Delivery Partner",
                 style: TextStyle(color: Color(0xFF111827)),
               ),
-              subtitle: const Text(
-                "Ravi Kumar (+91 98480 12345)",
-                style: TextStyle(color: Colors.black54),
+              subtitle: Text(
+                _riderInfo != null && _riderInfo!["name"] != null
+                    ? "${_riderInfo!['name']} (${_riderInfo!['phone'] ?? ''})"
+                    : "Partner assigned once order is packed",
+                style: const TextStyle(color: Colors.black54),
               ),
               onTap: () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Calling Rider...")),
-                );
+                if (_riderInfo != null && _riderInfo!["name"] != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Calling ${_riderInfo!['name']}...")),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("No delivery partner assigned yet.")),
+                  );
+                }
               },
             ),
           ],

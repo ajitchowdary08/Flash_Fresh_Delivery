@@ -161,17 +161,16 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-    } catch (_) {}
-
-    return {
-      "success": true,
-      "user_id": firebaseUid.startsWith("firebase_auto_")
-          ? canonicalUserId
-          : firebaseUid,
-      "phone": cleanPhone,
-      "name": defaultName,
-      "token": "jwt_synced_$firebaseUid",
-    };
+      return {
+        "success": false,
+        "error": "Backend returned ${response.statusCode}: ${response.body}",
+      };
+    } catch (e) {
+      return {
+        "success": false,
+        "error": "Network error during backend sync: $e",
+      };
+    }
   }
 
   static Future<Map<String, dynamic>> verifyOtp(
@@ -929,79 +928,6 @@ class ApiService {
     double gstAmount = itemsTotal > 0 ? (0.18 * (deliveryFee + handlingFee)) : 0.0;
     double grandTotal = netItems + deliveryFee + handlingFee + gstAmount;
 
-    final orderId = "ord_${DateTime.now().millisecondsSinceEpoch}";
-    final orderNum =
-        "MYP-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}";
-
-    // Cache order locally so it immediately shows up in "My Orders"
-    final newLocalOrder = OrderHistoryModel(
-      orderId: orderId,
-      orderNumber: orderNum,
-      status: "PLACED",
-      grandTotal: grandTotal,
-      itemsTotal: itemsTotal,
-      discountAmount: discount,
-      promoCode: promoCode,
-      deliveryFee: deliveryFee,
-      deliveryOtp: "4921",
-      paymentStatus: "PAID",
-      paymentMethod: paymentMethod,
-      deliveryAddress: deliveryAddress,
-      deliveryEtaMins: 12,
-      createdAt: "Just now",
-      isSundayMeatOrder: isSundayMeatOrder,
-      items: items
-          .map(
-            (i) => OrderHistoryItem(
-              name: i.product.name,
-              variant: i.selectedVariant.weightLabel,
-              quantity: i.quantity,
-              unitPrice: i.selectedVariant.price,
-              totalPrice: i.totalPrice,
-            ),
-          )
-          .toList(),
-    );
-
-    _localOrders.insert(0, newLocalOrder);
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final rawDiskOrders = prefs.getStringList("cached_user_orders") ?? [];
-      rawDiskOrders.insert(
-        0,
-        jsonEncode({
-          "order_id": newLocalOrder.orderId,
-          "order_number": newLocalOrder.orderNumber,
-          "status": newLocalOrder.status,
-          "grand_total": newLocalOrder.grandTotal,
-          "items_total": newLocalOrder.itemsTotal,
-          "discount_amount": newLocalOrder.discountAmount,
-          "promo_code": newLocalOrder.promoCode,
-          "delivery_fee": newLocalOrder.deliveryFee,
-          "delivery_otp": newLocalOrder.deliveryOtp,
-          "payment_status": newLocalOrder.paymentStatus,
-          "payment_method": newLocalOrder.paymentMethod,
-          "delivery_address": newLocalOrder.deliveryAddress,
-          "delivery_eta_mins": newLocalOrder.deliveryEtaMins,
-          "created_at": newLocalOrder.createdAt,
-          "is_sunday_meat_order": newLocalOrder.isSundayMeatOrder,
-          "items": newLocalOrder.items
-              .map(
-                (i) => {
-                  "name": i.name,
-                  "variant": i.variant,
-                  "quantity": i.quantity,
-                  "unit_price": i.unitPrice,
-                  "total_price": i.totalPrice,
-                },
-              )
-              .toList(),
-        }),
-      );
-      await prefs.setStringList("cached_user_orders", rawDiskOrders);
-    } catch (_) {}
-
     try {
       // Idempotency key: stable per cart+user+payment snapshot for 10 minutes.
       // If the customer double-taps "Pay" or the network retries after a
@@ -1030,7 +956,82 @@ class ApiService {
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        try {
+          final realOrderId = data['order_id'] ?? data['id'] ?? "";
+          final realOrderNum = data['order_number'] ?? "";
+          final realDeliveryOtp = data['delivery_otp']?.toString() ?? "";
+          final realGrandTotal = (data['grand_total'] as num?)?.toDouble() ?? grandTotal;
+          final realItemsTotal = (data['items_total'] as num?)?.toDouble() ?? itemsTotal;
+          final realDeliveryFee = (data['delivery_fee'] as num?)?.toDouble() ?? deliveryFee;
+
+          final newLocalOrder = OrderHistoryModel(
+            orderId: realOrderId,
+            orderNumber: realOrderNum,
+            status: data['status'] ?? "PLACED",
+            grandTotal: realGrandTotal,
+            itemsTotal: realItemsTotal,
+            discountAmount: discount,
+            promoCode: promoCode,
+            deliveryFee: realDeliveryFee,
+            deliveryOtp: realDeliveryOtp,
+            paymentStatus: data['payment_status'] ?? "PENDING",
+            paymentMethod: paymentMethod,
+            deliveryAddress: deliveryAddress,
+            deliveryEtaMins: 12,
+            createdAt: "Just now",
+            isSundayMeatOrder: isSundayMeatOrder,
+            items: items
+                .map(
+                  (i) => OrderHistoryItem(
+                    name: i.product.name,
+                    variant: i.selectedVariant.weightLabel,
+                    quantity: i.quantity,
+                    unitPrice: i.selectedVariant.price,
+                    totalPrice: i.totalPrice,
+                  ),
+                )
+                .toList(),
+          );
+
+          _localOrders.insert(0, newLocalOrder);
+          final prefs = await SharedPreferences.getInstance();
+          final rawDiskOrders = prefs.getStringList("cached_user_orders") ?? [];
+          rawDiskOrders.insert(
+            0,
+            jsonEncode({
+              "order_id": newLocalOrder.orderId,
+              "order_number": newLocalOrder.orderNumber,
+              "status": newLocalOrder.status,
+              "grand_total": newLocalOrder.grandTotal,
+              "items_total": newLocalOrder.itemsTotal,
+              "discount_amount": newLocalOrder.discountAmount,
+              "promo_code": newLocalOrder.promoCode,
+              "delivery_fee": newLocalOrder.deliveryFee,
+              "delivery_otp": newLocalOrder.deliveryOtp,
+              "payment_status": newLocalOrder.paymentStatus,
+              "payment_method": newLocalOrder.paymentMethod,
+              "delivery_address": newLocalOrder.deliveryAddress,
+              "delivery_eta_mins": newLocalOrder.deliveryEtaMins,
+              "created_at": newLocalOrder.createdAt,
+              "is_sunday_meat_order": newLocalOrder.isSundayMeatOrder,
+              "items": newLocalOrder.items
+                  .map(
+                    (i) => {
+                      "name": i.name,
+                      "variant": i.variant,
+                      "quantity": i.quantity,
+                      "unit_price": i.unitPrice,
+                      "total_price": i.totalPrice,
+                    },
+                  )
+                  .toList(),
+            }),
+          );
+          await prefs.setStringList("cached_user_orders", rawDiskOrders);
+        } catch (_) {}
+
+        return data;
       } else {
         try {
           final errBody = jsonDecode(response.body);

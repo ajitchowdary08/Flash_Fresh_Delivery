@@ -88,7 +88,7 @@ def get_cashfree_checkout_page(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    user_phone = order.user.phone if (order.user and order.user.phone) else "9966114243"
+    user_phone = order.user.phone if (order.user and order.user.phone) else "9999999999"
     user_name = order.user.name if (order.user and order.user.name) else "Customer"
 
     payment_session_id = session_id or order.payment_session_id

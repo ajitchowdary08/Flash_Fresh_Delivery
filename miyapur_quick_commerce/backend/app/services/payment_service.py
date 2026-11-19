@@ -20,7 +20,7 @@ class PaymentService:
     def create_cashfree_order(
         amount_in_rupees: float,
         order_id: str,
-        customer_phone: str = "9966114243",
+        customer_phone: str = "9999999999",
         customer_id: str = "cust_quick_commerce",
         customer_name: str = "Customer"
     ) -> Dict[str, Any]:
@@ -35,7 +35,7 @@ class PaymentService:
 
         clean_phone = customer_phone.strip().replace("+91", "").replace(" ", "").replace("-", "")
         if len(clean_phone) != 10:
-            clean_phone = "9966114243"
+            clean_phone = "9999999999"
 
         # Sanitize order ID for Cashfree (letters, numbers, hyphens, underscores; max 50 chars)
         clean_order_id = "".join(c for c in order_id if c.isalnum() or c in "-_")[:45]
