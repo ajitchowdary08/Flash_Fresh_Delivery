@@ -67,7 +67,7 @@ class RiderOrderModel {
       grandTotal: (json['grand_total'] as num?)?.toDouble() ?? 0.0,
       payoutAmount: (json['payout_amount'] as num?)?.toDouble() ?? 45.0,
       pickupHub: json['pickup_hub'] ?? 'Flash Fresh Central Dark Store (Metro Pillar 84)',
-      customerPhone: json['customer_phone'] ?? '+91 98765 43210',
+      customerPhone: json['customer_phone'] ?? json['phone'] ?? '',
       paymentMethod: json['payment_method'] ?? 'ONLINE',
       paymentStatus: json['payment_status'] ?? 'PAID',
       deliveryOtp: json['delivery_otp'],

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/rider_order.dart';
 import '../services/rider_api_service.dart';
+import '../services/rider_location_service.dart';
 
 class TripScreen extends StatefulWidget {
   final RiderOrderModel order;
@@ -40,6 +41,7 @@ class _TripScreenState extends State<TripScreen> {
   bool _isSimulating = false;
   List<Map<String, double>> _routeWaypoints = [];
   int _currentWpIdx = 0;
+  final RiderLocationService _locationService = RiderLocationService();
 
   @override
   void initState() {
@@ -49,14 +51,28 @@ class _TripScreenState extends State<TripScreen> {
     if (widget.order.status == 'OUT_FOR_DELIVERY') {
       _stage = 2;
       _fetchWaypoints();
+      _startLiveGpsTracking();
     }
   }
 
   @override
   void dispose() {
+    _locationService.stopStreaming();
     _simTimer?.cancel();
     _otpCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _startLiveGpsTracking() async {
+    try {
+      await RiderLocationService.ensurePermission();
+      _locationService.startStreaming((lat, lng) async {
+        if (!mounted || _stage >= 4) return;
+        await RiderApiService.updateLocation(widget.order.orderId, lat, lng);
+      });
+    } catch (e) {
+      debugPrint("[RiderLocation] Live GPS notice: $e");
+    }
   }
 
   void _fetchWaypoints() async {
@@ -141,6 +157,13 @@ class _TripScreenState extends State<TripScreen> {
 
   Future<void> _callCustomer(String phone) async {
     final clean = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (clean.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Customer phone number not available for this order.")),
+      );
+      return;
+    }
     final uri = Uri.parse("tel:$clean");
     try {
       await launchUrl(uri);
@@ -155,27 +178,40 @@ class _TripScreenState extends State<TripScreen> {
   void _handlePickupFromHub() async {
     HapticFeedback.heavyImpact();
     setState(() => _isLoading = true);
-    await RiderApiService.pickupOrder(widget.order.orderId);
+    final res = await RiderApiService.pickupOrder(widget.order.orderId);
     if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-      _stage = 2;
-    });
-    _fetchWaypoints();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.two_wheeler_rounded, color: Colors.white),
-            SizedBox(width: 10),
-            Text("Bag collected & verified! En route to customer."),
-          ],
+    setState(() => _isLoading = false);
+
+    if (res['success'] == true) {
+      setState(() {
+        _stage = 2;
+      });
+      _fetchWaypoints();
+      _startLiveGpsTracking();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.two_wheeler_rounded, color: Colors.white),
+              SizedBox(width: 10),
+              Text("Bag collected & verified! En route to customer."),
+            ],
+          ),
+          backgroundColor: const Color(0xFF00C853),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        backgroundColor: const Color(0xFF00C853),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+      );
+    } else {
+      final msg = res['message'] ?? res['detail'] ?? "Could not confirm pickup from hub. Please retry.";
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _handleVerifyOtpAndComplete(String otp) async {
@@ -186,12 +222,15 @@ class _TripScreenState extends State<TripScreen> {
     setState(() => _isLoading = false);
 
     if (res['success'] == true) {
+      _locationService.stopStreaming();
+      _simTimer?.cancel();
       setState(() => _stage = 4);
       _showSuccessCelebrationDialog();
     } else {
+      final msg = res['message'] ?? res['detail'] ?? "Incorrect PIN! Please check customer's order screen.";
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['detail'] ?? "Incorrect PIN! Please check customer's order screen."),
+          content: Text(msg),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),

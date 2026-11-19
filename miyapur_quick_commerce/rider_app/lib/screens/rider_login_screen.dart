@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -259,19 +260,21 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
                   style: const TextStyle(color: Colors.redAccent, fontSize: 13),
                 ),
               ],
-              const SizedBox(height: 32),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1C28),
-                  borderRadius: BorderRadius.circular(12),
+              if (kDebugMode) ...[
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1C28),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    "Demo rider numbers: 9848012345 (Ravi), 9876524680 (Suresh), 9123456789 (Naresh). "
+                    "When the backend has no SMS_API_KEY, the OTP is shown above.",
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
                 ),
-                child: const Text(
-                  "Demo rider numbers: 9848012345 (Ravi), 9876524680 (Suresh), 9123456789 (Naresh). "
-                  "When the backend has no SMS_API_KEY, the OTP is shown above.",
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ),
+              ],
             ],
           ),
         ),

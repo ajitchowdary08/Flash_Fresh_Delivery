@@ -190,7 +190,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
   void _handleAcceptOrder(RiderOrderModel order) async {
     HapticFeedback.heavyImpact();
     _countdownTimer?.cancel();
-    setState(() => _activeAlertOrder = null);
+    setState(() {
+      _dismissedOrderIds.add(order.orderId);
+      _activeAlertOrder = null;
+    });
 
     final res = await RiderApiService.acceptOrder(order.orderId);
     if (!mounted) return;
@@ -201,9 +204,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
           builder: (_) => TripScreen(
             order: order,
             onTripCompleted: () {
+              _loadRiderData();
               setState(() {
-                _todayEarnings += order.payoutAmount;
-                _completedTrips += 1;
                 _availableOrders.removeWhere((o) => o.orderId == order.orderId);
                 _dismissedOrderIds.add(order.orderId);
               });
