@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../models/rider_order.dart';
 import '../services/rider_api_service.dart';
 import 'trip_screen.dart';
@@ -13,7 +15,8 @@ class RiderHomeScreen extends StatefulWidget {
   State<RiderHomeScreen> createState() => _RiderHomeScreenState();
 }
 
-class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProviderStateMixin {
+class _RiderHomeScreenState extends State<RiderHomeScreen>
+    with SingleTickerProviderStateMixin {
   bool _isOnline = true;
   double _todayEarnings = 0.0;
   int _completedTrips = 0;
@@ -114,9 +117,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
     HapticFeedback.heavyImpact();
     final res = await RiderApiService.toggleDuty(val);
     if (!mounted) return;
+    final bool isOnlineNow = (res["is_online"] as bool?) ?? (res["success"] == true ? val : _isOnline);
     setState(() {
-      _isOnline = res;
-      if (!res) {
+      _isOnline = isOnlineNow;
+      if (!_isOnline) {
         _countdownTimer?.cancel();
         _activeAlertOrder = null;
       }
@@ -126,19 +130,23 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
         content: Row(
           children: [
             Icon(
-              res ? Icons.check_circle_rounded : Icons.power_settings_new_rounded,
+              isOnlineNow
+                  ? Icons.check_circle_rounded
+                  : Icons.power_settings_new_rounded,
               color: Colors.white,
             ),
             const SizedBox(width: 10),
             Text(
-              res
-                  ? "🟢 You are ONLINE in Miyapur Central Hub!"
+              isOnlineNow
+                  ? "🟢 You are ONLINE in Central Hub!"
                   : "⚪ You are now OFFLINE. Duty paused.",
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
         ),
-        backgroundColor: res ? const Color(0xFF00A352) : const Color(0xFF2C2F3E),
+        backgroundColor: isOnlineNow
+            ? const Color(0xFF00A352)
+            : const Color(0xFF2C2F3E),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -184,9 +192,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
     _countdownTimer?.cancel();
     setState(() => _activeAlertOrder = null);
 
-    final success = await RiderApiService.acceptOrder(order.orderId);
+    final res = await RiderApiService.acceptOrder(order.orderId);
     if (!mounted) return;
-    if (success) {
+    if (res["success"] == true) {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -201,6 +209,14 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
               });
             },
           ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res["message"] ?? "Order acceptance failed."),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -306,11 +322,17 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
           decoration: BoxDecoration(
             color: const Color(0xFF262938),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.4)),
+            border: Border.all(
+              color: const Color(0xFFFFB300).withValues(alpha: 0.4),
+            ),
           ),
           child: Row(
             children: [
-              const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 16),
+              const Icon(
+                Icons.star_rounded,
+                color: Color(0xFFFFB300),
+                size: 16,
+              ),
               const SizedBox(width: 4),
               Text(
                 "$_riderRating",
@@ -365,10 +387,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                       boxShadow: _isOnline
                           ? [
                               BoxShadow(
-                                color: const Color(0xFF00C853).withValues(alpha: 0.8),
+                                color: const Color(0xFF00C853)
+                                    .withValues(alpha: 0.8),
                                 blurRadius: 10,
                                 spreadRadius: 2,
-                              )
+                              ),
                             ]
                           : null,
                     ),
@@ -380,7 +403,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                       Text(
                         _isOnline ? "YOU ARE ONLINE" : "YOU ARE OFFLINE",
                         style: TextStyle(
-                          color: _isOnline ? const Color(0xFF00C853) : Colors.white60,
+                          color: _isOnline
+                              ? const Color(0xFF00C853)
+                              : Colors.white60,
                           fontWeight: FontWeight.w900,
                           fontSize: 13,
                           letterSpacing: 0.5,
@@ -397,7 +422,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
               Switch(
                 value: _isOnline,
                 activeThumbColor: const Color(0xFF00C853),
-                activeTrackColor: const Color(0xFF00C853).withValues(alpha: 0.25),
+                activeTrackColor: const Color(0xFF00C853)
+                    .withValues(alpha: 0.25),
                 inactiveThumbColor: Colors.grey,
                 inactiveTrackColor: Colors.grey.withValues(alpha: 0.2),
                 onChanged: _toggleDuty,
@@ -432,21 +458,31 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
               decoration: BoxDecoration(
                 color: const Color(0xFFFC8019).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFC8019).withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: const Color(0xFFFC8019).withValues(alpha: 0.25),
+                ),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.trending_up_rounded, color: Color(0xFFFC8019), size: 20),
+                  Icon(
+                    Icons.trending_up_rounded,
+                    color: Color(0xFFFC8019),
+                    size: 20,
+                  ),
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       "High demand in Miyapur Central! Switch online to receive instant delivery batches.",
-                      style: TextStyle(color: Color(0xFFFFB380), fontSize: 11, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        color: Color(0xFFFFB380),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
               ),
-            )
+            ),
           ],
         ],
       ),
@@ -471,7 +507,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
           const SizedBox(width: 5),
           Text(
             label,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -515,7 +555,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                     color: const Color(0xFFFC8019).withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.currency_rupee_rounded, color: Color(0xFFFC8019), size: 24),
+                  child: const Icon(
+                    Icons.currency_rupee_rounded,
+                    color: Color(0xFFFC8019),
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Column(
@@ -531,7 +575,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                     ),
                     Text(
                       "$_completedTrips Deliveries Completed Today",
-                      style: const TextStyle(color: Colors.white60, fontSize: 11),
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),
@@ -545,9 +592,20 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
               ),
               child: const Row(
                 children: [
-                  Text("Wallet", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(
+                    "Wallet",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 10),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white70,
+                    size: 10,
+                  ),
                 ],
               ),
             ),
@@ -569,7 +627,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
       decoration: BoxDecoration(
         color: const Color(0xFF191B26),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.2)),
+        border: Border.all(
+          color: const Color(0xFFFFB300).withValues(alpha: 0.2),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,11 +639,19 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
             children: [
               Row(
                 children: [
-                  const Icon(Icons.military_tech_rounded, color: Color(0xFFFFB300), size: 20),
+                  const Icon(
+                    Icons.military_tech_rounded,
+                    color: Color(0xFFFFB300),
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   const Text(
                     "Daily Target Incentive",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -654,7 +722,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
             ],
           ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white60, size: 20),
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: Colors.white60,
+              size: 20,
+            ),
             onPressed: _loadRiderData,
           ),
         ],
@@ -669,11 +741,24 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
           padding: const EdgeInsets.all(32),
           child: Column(
             children: [
-              Icon(Icons.bedtime_outlined, size: 54, color: Colors.grey.shade600),
+              Icon(
+                Icons.bedtime_outlined,
+                size: 54,
+                color: Colors.grey.shade600,
+              ),
               const SizedBox(height: 12),
-              const Text("Duty Paused", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white70)),
+              const Text(
+                "Duty Paused",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white70,
+                ),
+              ),
               const SizedBox(height: 4),
-              const Text("Slide online when ready to receive deliveries", style: TextStyle(color: Colors.grey, fontSize: 11)),
+              const Text(
+                "Slide online when ready to receive deliveries",
+                style: TextStyle(color: Colors.grey, fontSize: 11),
+              ),
             ],
           ),
         ),
@@ -695,11 +780,18 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
           padding: const EdgeInsets.all(32),
           child: Column(
             children: [
-              const Icon(Icons.radar_rounded, size: 54, color: Color(0xFFFC8019)),
+              const Icon(
+                Icons.radar_rounded,
+                size: 54,
+                color: Color(0xFFFC8019),
+              ),
               const SizedBox(height: 12),
               const Text(
                 "Scanning Miyapur Dark Store Hub...",
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(height: 4),
               const Text(
@@ -768,13 +860,21 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
           const SizedBox(height: 8),
           Text(
             "#${order.orderNumber}",
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Colors.white,
+            ),
           ),
           const Divider(color: Colors.white10, height: 18),
 
           Row(
             children: [
-              const Icon(Icons.storefront_rounded, size: 16, color: Color(0xFFFFB300)),
+              const Icon(
+                Icons.storefront_rounded,
+                size: 16,
+                color: Color(0xFFFFB300),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -787,12 +887,20 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF00C853)),
+              const Icon(
+                Icons.location_on_rounded,
+                size: 16,
+                color: Color(0xFF00C853),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   order.deliveryAddress,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               Container(
@@ -803,7 +911,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                 ),
                 child: Text(
                   "${order.distanceKm} km",
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white70,
+                  ),
                 ),
               ),
             ],
@@ -818,13 +930,18 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFC8019),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 elevation: 0,
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text("Accept Delivery Order", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(
+                    "Accept Delivery Order",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                   SizedBox(width: 8),
                   Icon(Icons.arrow_forward_rounded, size: 16),
                 ],
@@ -847,7 +964,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
         decoration: BoxDecoration(
           color: const Color(0xFF161824),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          border: Border.all(color: const Color(0xFFFC8019).withValues(alpha: 0.5), width: 1.5),
+          border: Border.all(
+            color: const Color(0xFFFC8019).withValues(alpha: 0.5),
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFFFC8019).withValues(alpha: 0.3),
@@ -868,7 +988,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFC8019),
                           borderRadius: BorderRadius.circular(20),
@@ -886,7 +1009,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                       const SizedBox(width: 8),
                       Text(
                         "#${order.orderNumber}",
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white60),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: Colors.white60,
+                        ),
                       ),
                     ],
                   ),
@@ -901,13 +1028,19 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                         child: CircularProgressIndicator(
                           value: _countdownSeconds / 30.0,
                           backgroundColor: Colors.white12,
-                          valueColor: const AlwaysStoppedAnimation(Color(0xFFFC8019)),
+                          valueColor: const AlwaysStoppedAnimation(
+                            Color(0xFFFC8019),
+                          ),
                           strokeWidth: 3.5,
                         ),
                       ),
                       Text(
                         "$_countdownSeconds",
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                          color: Colors.white,
+                        ),
                       ),
                     ],
                   ),
@@ -922,7 +1055,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                 decoration: BoxDecoration(
                   color: const Color(0xFF222536),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF00C853).withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: const Color(0xFF00C853).withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -932,7 +1067,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                       children: [
                         const Text(
                           "TOTAL EARNINGS FOR THIS TRIP",
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white60),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white60,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -946,7 +1085,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF00C853).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
@@ -992,10 +1134,18 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                       onPressed: () => _dismissAlert(order),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Colors.white24),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: const Text("Pass", style: TextStyle(color: Colors.white60, fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        "Pass",
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1007,7 +1157,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
                         backgroundColor: const Color(0xFFFC8019),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         elevation: 0,
                       ),
                       child: const Row(
@@ -1053,11 +1205,19 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> with SingleTickerProv
             children: [
               Text(
                 label,
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: iconColor),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: iconColor,
+                ),
               ),
               Text(
                 title,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),

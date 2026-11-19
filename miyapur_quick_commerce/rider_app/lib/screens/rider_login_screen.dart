@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../services/rider_api_service.dart';
-import '../utils/rider_preferences.dart';
 import 'rider_home_screen.dart';
 
 /// OTP login for the rider app. Riders share the customer OTP flow, but the
@@ -92,15 +92,25 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.delivery_dining_rounded, size: 64, color: Color(0xFFFC8019)),
+              const Icon(
+                Icons.delivery_dining_rounded,
+                size: 64,
+                color: Color(0xFFFC8019),
+              ),
               const SizedBox(height: 16),
               const Text(
                 "Flash Fresh Partner",
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
-                _otpSent ? "Enter the OTP sent to +91 ${_phoneCtrl.text.trim()}" : "Sign in with your registered rider phone number",
+                _otpSent
+                    ? "Enter the OTP sent to +91 ${_phoneCtrl.text.trim()}"
+                    : "Sign in with your registered rider phone number",
                 style: const TextStyle(fontSize: 14, color: Colors.white54),
               ),
               const SizedBox(height: 28),
@@ -108,16 +118,29 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
                 TextField(
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                  style: const TextStyle(color: Colors.white, fontSize: 18, letterSpacing: 2),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    letterSpacing: 2,
+                  ),
                   decoration: InputDecoration(
                     prefixText: "+91 ",
-                    prefixStyle: const TextStyle(color: Colors.white70, fontSize: 18),
+                    prefixStyle: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 18,
+                    ),
                     labelText: "Mobile Number",
                     labelStyle: const TextStyle(color: Colors.white54),
                     filled: true,
                     fillColor: const Color(0xFF1A1C28),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -128,34 +151,66 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
                     onPressed: _loading ? null : _sendOtp,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFC8019),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     child: _loading
-                        ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                        : const Text("Send OTP", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                        : const Text(
+                            "Send OTP",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ] else ...[
                 TextField(
                   controller: _otpCtrl,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                  style: const TextStyle(color: Colors.white, fontSize: 24, letterSpacing: 8),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(6),
+                  ],
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    letterSpacing: 8,
+                  ),
                   textAlign: TextAlign.center,
                   decoration: InputDecoration(
                     labelText: "Enter 6-digit OTP",
                     labelStyle: const TextStyle(color: Colors.white54),
                     filled: true,
                     fillColor: const Color(0xFF1A1C28),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
                 if (_devOtp != null) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: const Color(0xFF1E2A1E), borderRadius: BorderRadius.circular(10), border: Border.all(color: Color(0xFF00C853))),
-                    child: Text("Dev OTP: $_devOtp (shown because SMS is not configured)", style: const TextStyle(color: Color(0xFF00C853), fontSize: 13)),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E2A1E),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Color(0xFF00C853)),
+                    ),
+                    child: Text(
+                      "Dev OTP: $_devOtp (shown because SMS is not configured)",
+                      style: const TextStyle(
+                        color: Color(0xFF00C853),
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -166,27 +221,51 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
                     onPressed: _loading ? null : _verifyOtp,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF00C853),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     child: _loading
-                        ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                        : const Text("Verify & Continue", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                        : const Text(
+                            "Verify & Continue",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextButton(
-                  onPressed: () => setState(() { _otpSent = false; _error = null; }),
-                  child: const Text("Change number", style: TextStyle(color: Colors.white54)),
+                  onPressed: () => setState(() {
+                    _otpSent = false;
+                    _error = null;
+                  }),
+                  child: const Text(
+                    "Change number",
+                    style: TextStyle(color: Colors.white54),
+                  ),
                 ),
               ],
               if (_error != null) ...[
                 const SizedBox(height: 12),
-                Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                ),
               ],
               const SizedBox(height: 32),
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: const Color(0xFF1A1C28), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1C28),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: const Text(
                   "Demo rider numbers: 9848012345 (Ravi), 9876524680 (Suresh), 9123456789 (Naresh). "
                   "When the backend has no SMS_API_KEY, the OTP is shown above.",
