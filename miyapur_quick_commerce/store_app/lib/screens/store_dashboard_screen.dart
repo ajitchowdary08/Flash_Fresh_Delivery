@@ -128,7 +128,16 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
   }
 
   void _handleAssignRider(String orderId) async {
-    final riderId = _selectedRiders[orderId] ?? (_activeRiders.isNotEmpty ? _activeRiders.first["id"]! : "rdr_9848012345");
+    if (_activeRiders.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("No delivery riders currently online. Please wait for a rider to go on duty."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+    final riderId = _selectedRiders[orderId] ?? _activeRiders.first["id"]!;
     final res = await StoreApiService.assignRider(orderId, riderId);
     if (!mounted) return;
     final ok = res["success"] == true;
@@ -251,6 +260,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
               onPressed: () async {
                 Navigator.pop(ctx);
+                final messenger = ScaffoldMessenger.of(context);
                 final w = double.tryParse(_weighWeightCtrl.text) ?? 520;
                 await StoreApiService.recordMeatWeight(
                   orderId: _weighOrderId!,
@@ -260,7 +270,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                   skinless: _skinless,
                 );
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(content: Text("🥩 Weight ${w.toInt()}g Recorded & Bag Sealed!"), backgroundColor: const Color(0xFF059669)),
                 );
                 _loadDashboardData();
@@ -651,17 +661,23 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedRiders[orderId] ?? (_activeRiders.isNotEmpty ? _activeRiders.first["id"] : "rdr_ravi_01"),
-                        items: _activeRiders
-                            .map((r) => DropdownMenuItem(
-                                  value: r["id"] as String,
-                                  child: Text("${r['name']} (${r['vehicle']})", style: const TextStyle(fontSize: 11)),
-                                ))
-                            .toList(),
-                        onChanged: (val) => setState(() => _selectedRiders[orderId] = val!),
-                        decoration: InputDecoration(contentPadding: const EdgeInsets.symmetric(horizontal: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-                      ),
+                      child: _activeRiders.isNotEmpty
+                          ? DropdownButtonFormField<String>(
+                              value: _selectedRiders[orderId] ?? _activeRiders.first["id"],
+                              items: _activeRiders
+                                  .map((r) => DropdownMenuItem(
+                                        value: r["id"] as String,
+                                        child: Text("${r['name']} (${r['vehicle']})", style: const TextStyle(fontSize: 11)),
+                                      ))
+                                  .toList(),
+                              onChanged: (val) => setState(() => _selectedRiders[orderId] = val!),
+                              decoration: InputDecoration(contentPadding: const EdgeInsets.symmetric(horizontal: 10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                            )
+                          : Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                              decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+                              child: const Text("No riders online", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                            ),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
@@ -721,7 +737,33 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD97706), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               onPressed: () async {
                 final w = double.tryParse(_weighWeightCtrl.text) ?? 520;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("🥩 Verified Weight ${w.toInt()}g Sealed!"), backgroundColor: const Color(0xFFD97706)));
+                final meatOrders = _packingQueue.where((o) => o['is_sunday_meat_order'] == true).toList();
+                final targetOrderId = _weighOrderId ?? (meatOrders.isNotEmpty ? meatOrders.first['order_id'] : (_packingQueue.isNotEmpty ? _packingQueue.first['order_id'] : null));
+                if (targetOrderId != null) {
+                  final res = await StoreApiService.recordMeatWeight(
+                    orderId: targetOrderId,
+                    weightG: w,
+                    cutType: _cutStyle,
+                    turmericWash: _turmericWash,
+                    skinless: _skinless,
+                  );
+                  if (!mounted) return;
+                  final ok = res['success'] == true;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(ok ? "🥩 Verified Weight ${w.toInt()}g Sealed for Order!" : "❌ ${res['message'] ?? 'Failed to record weight'}"),
+                      backgroundColor: ok ? const Color(0xFFD97706) : Colors.redAccent,
+                    ),
+                  );
+                  if (ok) _loadDashboardData();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("No active orders in queue to record weight for."),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
               },
               icon: const Icon(Icons.verified_rounded, size: 18, color: Colors.white),
               label: const Text("Save Net Weight & Seal Bag", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),

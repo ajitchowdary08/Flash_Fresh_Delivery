@@ -338,7 +338,7 @@ class StoreApiService {
   static Future<Map<String, dynamic>> getRatings() async {
     try {
       final res = await http
-          .get(Uri.parse("$baseUrl/rider/reviews"), headers: _authHeaders())
+          .get(Uri.parse("$baseUrl/store/reviews"), headers: _authHeaders())
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) return jsonDecode(res.body);
     } catch (_) {}

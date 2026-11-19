@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -255,18 +256,20 @@ class _StoreLoginScreenState extends State<StoreLoginScreen> {
                   style: const TextStyle(color: Colors.redAccent, fontSize: 13),
                 ),
               ],
-              const SizedBox(height: 32),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(12),
+              if (kDebugMode) ...[
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    "Default demo manager number: 9000011111. In production, change this to your store's real number and configure SMS_API_KEY.",
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
                 ),
-                child: const Text(
-                  "Default demo manager number: 9000011111. In production, change this to your store's real number and configure SMS_API_KEY.",
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ),
+              ],
             ],
           ),
         ),
