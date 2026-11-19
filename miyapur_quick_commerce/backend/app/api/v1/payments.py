@@ -23,8 +23,16 @@ class CashfreeVerifyPayload(BaseModel):
 @router.post("/verify")
 def verify_payment(req: VerifyPaymentPayload, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     """
-    Confirms order payment status and advances order to PACKING / DISPATCH.
+    Confirms offline / postpaid payment methods (COD, Pay Later) and advances order to PACKING.
+    Online gateway payments (Cards, UPI, NetBanking) MUST be verified server-side via /payments/cashfree/verify.
     """
+    method = (req.payment_method or "COD").upper()
+    if method not in ["COD", "CASH_ON_DELIVERY", "PAY_LATER", "PAY_LATER_MONTHLY"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Online payments must be verified via official gateway verification (/payments/cashfree/verify)."
+        )
+
     order = db.query(Order).filter(Order.id == req.order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -34,7 +42,7 @@ def verify_payment(req: VerifyPaymentPayload, db: Session = Depends(get_db), use
             and order.user_id != user.get("sub"):
         raise HTTPException(status_code=403, detail="You can only verify payments for your own orders.")
 
-    order.payment_status = "PAID" if req.payment_method.upper() not in ["COD", "CASH_ON_DELIVERY"] else "PENDING_COD"
+    order.payment_status = "PENDING_COD" if method in ["COD", "CASH_ON_DELIVERY"] else "PAID"
     order.payment_method = req.payment_method
     order.status = "PACKED"
     db.commit()

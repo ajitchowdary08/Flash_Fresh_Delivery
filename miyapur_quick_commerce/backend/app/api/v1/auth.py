@@ -177,10 +177,22 @@ def get_pay_later_statement(user_id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/pay-later/settle-bill/{user_id}")
-def settle_pay_later_bill(user_id: str, db: Session = Depends(get_db)):
+def settle_pay_later_bill(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     """
     Settles user's monthly credit line bill via UPI/Cashfree and resets running tab to ₹0.
+    Requires caller to be either the user themselves or a store manager/admin.
     """
+    caller_role = current_user.get("role", "CUSTOMER")
+    caller_id = current_user.get("sub", "")
+    if caller_role not in ["MANAGER", "ADMIN"] and caller_id != user_id and f"usr_{current_user.get('phone')}" != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Unauthorized: You cannot settle another customer's monthly dues.",
+        )
     user = db.query(User).filter(User.id == user_id).first()
     if user:
         cleared_amount = user.current_monthly_dues

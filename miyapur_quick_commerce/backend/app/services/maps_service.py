@@ -286,5 +286,79 @@ class MapsService:
 
         return []
 
+    @classmethod
+    def get_directions_route(cls, origin_lat: float, origin_lng: float, dest_lat: float, dest_lng: float) -> Dict[str, Any]:
+        """
+        Returns real street route coordinates snapped to the road network between
+        origin and destination. Uses Google Directions API if key configured, or OSRM.
+        """
+        # 1. Google Directions API
+        if settings.GOOGLE_MAPS_API_KEY:
+            try:
+                url = "https://maps.googleapis.com/maps/api/directions/json"
+                params = {
+                    "origin": f"{origin_lat},{origin_lng}",
+                    "destination": f"{dest_lat},{dest_lng}",
+                    "key": settings.GOOGLE_MAPS_API_KEY,
+                    "mode": "driving"
+                }
+                res = requests.get(url, params=params, timeout=5)
+                if res.status_code == 200:
+                    data = res.json()
+                    routes = data.get("routes", [])
+                    if routes:
+                        points = []
+                        overview = routes[0].get("overview_polyline", {}).get("points", "")
+                        # Decode polyline or extract steps
+                        legs = routes[0].get("legs", [])
+                        if legs:
+                            for step in legs[0].get("steps", []):
+                                s_loc = step.get("start_location", {})
+                                e_loc = step.get("end_location", {})
+                                if s_loc: points.append({"latitude": s_loc.get("lat"), "longitude": s_loc.get("lng")})
+                                if e_loc: points.append({"latitude": e_loc.get("lat"), "longitude": e_loc.get("lng")})
+                        return {
+                            "success": True,
+                            "points": points,
+                            "overview_polyline": overview,
+                            "distance_km": cls.calculate_haversine_distance(origin_lat, origin_lng, dest_lat, dest_lng)
+                        }
+            except Exception as e:
+                print(f"[Google Directions Error]: {e}")
+
+        # 2. OpenStreetMap OSRM Free Routing Engine
+        try:
+            url = f"https://router.project-osrm.org/route/v1/driving/{origin_lng},{origin_lat};{dest_lng},{dest_lat}?overview=full&geometries=geojson"
+            res = requests.get(url, timeout=5)
+            if res.status_code == 200:
+                data = res.json()
+                routes = data.get("routes", [])
+                if routes:
+                    coords = routes[0].get("geometry", {}).get("coordinates", [])
+                    points = [{"latitude": c[1], "longitude": c[0]} for c in coords]
+                    return {
+                        "success": True,
+                        "points": points,
+                        "distance_km": cls.calculate_haversine_distance(origin_lat, origin_lng, dest_lat, dest_lng)
+                    }
+        except Exception as e:
+            print(f"[OSRM Directions Error]: {e}")
+
+        # 3. Straight line waypoints fallback
+        dist = cls.calculate_haversine_distance(origin_lat, origin_lng, dest_lat, dest_lng)
+        points = []
+        steps = 10
+        for i in range(steps + 1):
+            t = i / steps
+            points.append({
+                "latitude": round(origin_lat + t * (dest_lat - origin_lat), 6),
+                "longitude": round(origin_lng + t * (dest_lng - origin_lng), 6)
+            })
+        return {
+            "success": True,
+            "points": points,
+            "distance_km": dist
+        }
+
 
 maps_service = MapsService()

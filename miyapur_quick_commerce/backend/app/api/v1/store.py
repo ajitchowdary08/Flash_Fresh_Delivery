@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import uuid
@@ -44,20 +45,20 @@ def get_store_dashboard_summary(db: Session = Depends(get_db), manager: dict = D
     """
     Returns store overview: orders waiting to be packed, out for delivery, delivered, and total catalog items.
     """
-    all_orders = db.query(Order).all()
-    pending_pack = [o for o in all_orders if o.status == "PLACED"]
-    packed = [o for o in all_orders if o.status == "PACKED"]
-    out_for_delivery = [o for o in all_orders if o.status == "OUT_FOR_DELIVERY"]
-    delivered = [o for o in all_orders if o.status == "DELIVERED"]
+    pending_pack = db.query(func.count(Order.id)).filter(Order.status == "PLACED").scalar() or 0
+    packed = db.query(func.count(Order.id)).filter(Order.status == "PACKED").scalar() or 0
+    out_for_delivery = db.query(func.count(Order.id)).filter(Order.status == "OUT_FOR_DELIVERY").scalar() or 0
+    delivered = db.query(func.count(Order.id)).filter(Order.status == "DELIVERED").scalar() or 0
+    total_rev = db.query(func.sum(Order.grand_total)).filter(Order.status.in_(["DELIVERED", "OUT_FOR_DELIVERY"])).scalar() or 0.0
 
     return {
         "store_name": "Central Fulfillment Dark Store Hub",
         "service_radius": "Full City Delivery",
-        "orders_to_pack": len(pending_pack),
-        "orders_ready_for_pickup": len(packed),
-        "orders_in_transit": len(out_for_delivery),
-        "orders_delivered_today": len(delivered),
-        "total_revenue_today": sum(o.grand_total for o in delivered + out_for_delivery)
+        "orders_to_pack": pending_pack,
+        "orders_ready_for_pickup": packed,
+        "orders_in_transit": out_for_delivery,
+        "orders_delivered_today": delivered,
+        "total_revenue_today": round(float(total_rev), 2)
     }
 
 @router.get("/packing-queue")

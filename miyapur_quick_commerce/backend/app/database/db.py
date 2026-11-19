@@ -28,8 +28,9 @@ def init_db():
 
         def add_column_if_missing(table_name, column_name, column_ddl):
             try:
-                if inspector.has_table(table_name):
-                    cols = [c["name"] for c in inspector.get_columns(table_name)]
+                fresh_inspector = inspect(engine)
+                if fresh_inspector.has_table(table_name):
+                    cols = [c["name"] for c in fresh_inspector.get_columns(table_name)]
                     if column_name not in cols:
                         with engine.begin() as conn:
                             if is_pg:

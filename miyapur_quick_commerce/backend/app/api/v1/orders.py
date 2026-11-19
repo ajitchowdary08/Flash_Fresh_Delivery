@@ -260,17 +260,19 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
     # POSTPAID_TAB for pay-later, PENDING_COD for COD). The webhook / verify
     # endpoints will later flip this to PAID/FAILED.
     try:
+        gateway_name = "CASHFREE" if payment_status == "PENDING" else (req.payment_method or "UPI").upper()
         db.add(Payment(
             order_id=new_order.id,
-            gateway="CASHFREE" if payment_status == "PENDING" else payment_method.upper(),
+            gateway=gateway_name,
             gateway_order_id=new_order.order_number,
             gateway_payment_id=payment_meta.get("cf_order_id"),
             amount=grand_total,
             status=payment_status if payment_status != "PENDING" else "PENDING",
         ))
         db.commit()
-    except Exception:
+    except Exception as e:
         db.rollback()
+        print(f"[Payment Ledger Error]: {e}")
 
     return {
         "success": True,
