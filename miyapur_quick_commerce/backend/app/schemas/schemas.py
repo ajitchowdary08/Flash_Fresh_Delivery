@@ -64,6 +64,11 @@ class OrderItemCreate(BaseModel):
     variant_label: str
     quantity: int
     unit_price: float
+    # Optional but recommended: the exact product/variant UUIDs from the catalog.
+    # When supplied, the backend looks up the variant by id (not by weight_label)
+    # and IGNORES client-supplied unit_price entirely — the DB price is authoritative.
+    product_id: Optional[str] = None
+    variant_id: Optional[str] = None
 
 class CreateOrderRequest(BaseModel):
     user_id: str

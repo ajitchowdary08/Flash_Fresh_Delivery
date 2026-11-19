@@ -8,11 +8,12 @@ from typing import Dict, List
 from pydantic import BaseModel
 
 from app.database.db import get_db
-from app.models.models import Order, OrderItem, Product, ProductVariant, User, PromoCode
+from app.models.models import Order, OrderItem, Product, ProductVariant, User, PromoCode, Rating, Payment
 from app.schemas.schemas import CreateOrderRequest
 from app.services.maps_service import maps_service
 from app.services.payment_service import payment_service
 from app.core.config import settings
+from app.core.security import get_current_user
 
 router = APIRouter(prefix="/orders", tags=["Orders & Real-Time Tracking"])
 
@@ -47,12 +48,6 @@ class ConnectionManager:
 
 ws_manager = ConnectionManager()
 
-PROMO_CODES = {
-    "ZEPTO50": {"discount_percent": 20, "max_discount": 50, "min_order": 149},
-    "FLASH100": {"discount_percent": 25, "max_discount": 100, "min_order": 299},
-    "SUNDAYMEAT": {"discount_percent": 15, "max_discount": 75, "min_order": 199},
-}
-
 VALID_STATE_TRANSITIONS = {
     "PLACED": ["PACKED", "CANCELLED"],
     "PACKED": ["OUT_FOR_DELIVERY", "CANCELLED"],
@@ -64,12 +59,12 @@ VALID_STATE_TRANSITIONS = {
 @router.post("/create")
 def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
     """
-    1. Validates strict 10.0 KM service radius from Miyapur Central Hub.
-    2. Server-authoritative idempotency check (prevents double-charge/duplicate order).
-    3. Looks up canonical product prices & stock from database (security check).
-    4. Calculates items total, discounts (if valid promo code), delivery charge.
-    5. Generates 4-digit Delivery Verification OTP.
-    6. Creates official Cashfree Sandbox payment session.
+    1. Server-authoritative idempotency check (prevents double-charge/duplicate order).
+    2. Looks up canonical product prices & stock from database (security check).
+    3. Calculates items total, delivery charge (no radius restriction — we deliver
+       anywhere; no promo codes).
+    4. Generates 4-digit Delivery Verification OTP.
+    5. Creates official Cashfree Sandbox payment session.
     """
     if req.idempotency_key:
         existing = db.query(Order).filter(Order.idempotency_key == req.idempotency_key).first()
@@ -99,37 +94,55 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
                 "message": "Order already processed (idempotency key matched)"
             }
 
+    # We deliver ANYWHERE — there is no radius cap. We still compute the
+    # haversine distance and ETA so the order row records how far the drop is
+    # and the store manager / rider can see it. check_serviceability() now
+    # always reports is_serviceable=True; it is only used for the distance/ETA.
     service_info = maps_service.check_serviceability(req.latitude, req.longitude)
-    if not service_info["is_serviceable"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Delivery address exceeds our {settings.MAX_DELIVERY_RADIUS_KM} KM service boundary. Distance is {service_info['distance_km']:.1f} KM."
-        )
 
     validated_items = []
     items_total = 0.0
 
     for itm in req.items:
-        # DB authoritative variant lookup (flexible space/case matching)
-        clean_v_label = itm.variant_label.replace(" ", "").lower()
-        all_variants = db.query(ProductVariant).all()
-        variant = next((v for v in all_variants if v.weight_label.replace(" ", "").lower() == clean_v_label), None)
+        # Authoritative variant lookup. Prefer the exact variant_id (most precise),
+        # then fall back to weight_label + product name. The client-supplied
+        # `unit_price` is NEVER trusted when a real variant is found — the DB
+        # price is the source of truth so manager price edits are always honored.
+        variant = None
+        if itm.variant_id:
+            variant = db.query(ProductVariant).filter(
+                ProductVariant.id == itm.variant_id
+            ).first()
+        if not variant and itm.product_id:
+            variant = db.query(ProductVariant).filter(
+                ProductVariant.product_id == itm.product_id,
+                ProductVariant.weight_label == itm.variant_label
+            ).first()
+        if not variant:
+            # Last-resort fallback by weight_label alone (legacy clients).
+            # Restricted to active products so deactivated items cannot be ordered.
+            variant = db.query(ProductVariant).join(Product).filter(
+                Product.is_active == True,
+                ProductVariant.weight_label == itm.variant_label,
+                Product.name == itm.product_name
+            ).first()
 
         if not variant:
-            prod = db.query(Product).filter(Product.name.ilike(f"%{itm.product_name.split('(')[0].strip()}%")).first()
-            if prod and prod.variants:
-                variant = prod.variants[0]
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{itm.product_name}' ({itm.variant_label}) is no longer available. Please remove it from your cart and retry."
+            )
 
-        unit_price = variant.price if variant else itm.unit_price
+        # DB price is authoritative — ignore the client's unit_price.
+        unit_price = variant.price
 
         # Deduct stock atomically
-        if variant:
-            if variant.stock_qty < itm.quantity:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Only {variant.stock_qty} units left for {itm.product_name} ({itm.variant_label}). Please update cart quantity."
-                )
-            variant.stock_qty -= itm.quantity
+        if variant.stock_qty < itm.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only {variant.stock_qty} units left for {itm.product_name} ({itm.variant_label}). Please update cart quantity."
+            )
+        variant.stock_qty -= itm.quantity
 
         total_price = unit_price * itm.quantity
         items_total += total_price
@@ -142,18 +155,10 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
             "total_price": total_price
         })
 
-    # Calculate discount from DB PromoCode table
+    # No promo codes / discounts. The customer pays items_total + fees.
     discount_amount = 0.0
     promo_code_applied = ""
-    if req.promo_code:
-        code_upper = req.promo_code.strip().upper()
-        promo = db.query(PromoCode).filter(PromoCode.code == code_upper, PromoCode.is_active == True).first()
-        if promo and items_total >= promo.min_order:
-            calc_disc = (items_total * promo.discount_percent) / 100.0
-            discount_amount = min(calc_disc, promo.max_discount)
-            promo_code_applied = code_upper
-
-    net_items_total = max(0.0, items_total - discount_amount)
+    net_items_total = items_total
     delivery_fee = 0.0 if net_items_total >= 199.0 else 15.0
     handling_fee = 4.0 if items_total > 0 else 0.0
     gst_amount = round(0.18 * (delivery_fee + handling_fee), 2) if items_total > 0 else 0.0
@@ -177,36 +182,23 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
             user.current_monthly_dues = (user.current_monthly_dues or 0.0) + grand_total
         payment_status = "POSTPAID_TAB"
 
-    # Ensure user exists in database to prevent Foreign Key Violation (500 Error)
-    clean_phone = req.user_id.replace("usr_", "").replace("+91", "").strip()
-    user = db.query(User).filter(
-        (User.id == req.user_id) | (User.phone == clean_phone) | (User.phone == req.user_id)
-    ).first()
-
-    if not user:
-        user = User(
-            id=req.user_id if req.user_id.startswith("usr_") else f"usr_{clean_phone}",
-            phone=clean_phone if clean_phone else "9966114243",
-            name="Valued Customer",
-            email=""
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    order_number = f"MYP-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(1000, 9999)}"
+    # Order number uses date + a monotonic counter derived from today's order count
+    # (was random 1000-9999, which only allowed 9000 numbers/day and could collide).
+    today_prefix = datetime.utcnow().strftime("%Y%m%d")
+    today_count = db.query(Order).filter(Order.order_number.like(f"MYP-{today_prefix}-%")).count()
+    order_number = f"MYP-{today_prefix}-{today_count + 1:05d}"
     delivery_otp = str(random.randint(1000, 9999))
 
     new_order = Order(
         id=str(uuid.uuid4()),
         order_number=order_number,
-        user_id=user.id,
+        user_id=req.user_id,
         delivery_address=req.delivery_address,
         latitude=req.latitude,
         longitude=req.longitude,
-        distance_km=service_info.get("distance_km", 0.8),
+        distance_km=service_info["distance_km"],
         status="PLACED",
-        delivery_eta_mins=service_info.get("estimated_delivery_minutes", 15),
+        delivery_eta_mins=service_info["estimated_delivery_minutes"] or 15,
         items_total=items_total,
         discount_amount=discount_amount,
         promo_code=promo_code_applied,
@@ -219,12 +211,15 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
         scheduled_slot=req.scheduled_slot or "10-15 Mins Quick Delivery",
         delivery_instructions=req.delivery_instructions or "",
         delivery_otp=delivery_otp,
-        rider_id="rdr_ravi_01",
-        rider_name="Ravi Kumar",
-        rider_phone="+91 98480 12345",
-        rider_vehicle="Hero Electric (TS 07 EK 4921)",
-        rider_lat=17.495101,
-        rider_lng=78.367535
+        # No rider is assigned at creation time — a rider is assigned only when
+        # one accepts the order or the store manager dispatches it. Previously
+        # every order was born with a fake "Ravi Kumar" rider.
+        rider_id=None,
+        rider_name=None,
+        rider_phone=None,
+        rider_vehicle=None,
+        rider_lat=None,
+        rider_lng=None,
     )
 
     for v_itm in validated_items:
@@ -261,6 +256,22 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_order)
 
+    # Record the initial payment ledger entry (status PENDING for online,
+    # POSTPAID_TAB for pay-later, PENDING_COD for COD). The webhook / verify
+    # endpoints will later flip this to PAID/FAILED.
+    try:
+        db.add(Payment(
+            order_id=new_order.id,
+            gateway="CASHFREE" if payment_status == "PENDING" else payment_method.upper(),
+            gateway_order_id=new_order.order_number,
+            gateway_payment_id=payment_meta.get("cf_order_id"),
+            amount=grand_total,
+            status=payment_status if payment_status != "PENDING" else "PENDING",
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+
     return {
         "success": True,
         "order_id": new_order.id,
@@ -280,15 +291,22 @@ def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
     }
 
 @router.post("/{order_id}/cancel")
-async def cancel_order(order_id: str, db: Session = Depends(get_db)):
+async def cancel_order(order_id: str, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     """
     Cancels an order within 60s / before dispatch and restores product inventory automatically.
+    Enforces the legal state-machine transitions defined in VALID_STATE_TRANSITIONS.
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status in ["OUT_FOR_DELIVERY", "DELIVERED"]:
+    # Ownership: the authenticated user must own this order (managers use the
+    # store routes, not this one). In dev, get_current_user returns a guest.
+    if order.user_id and user.get("sub") and order.user_id != user.get("sub") and user.get("role") == "CUSTOMER":
+        raise HTTPException(status_code=403, detail="You can only cancel your own orders.")
+
+    allowed = VALID_STATE_TRANSITIONS.get(order.status, [])
+    if "CANCELLED" not in allowed:
         raise HTTPException(
             status_code=400,
             detail=f"Cannot cancel order in status '{order.status}'. Rider is already en route or delivered."
@@ -296,9 +314,12 @@ async def cancel_order(order_id: str, db: Session = Depends(get_db)):
 
     order.status = "CANCELLED"
 
-    # Restore stock for variant items
+    # Restore stock — match the variant precisely by name+label (legacy) since
+    # order_items don't store variant_id yet.
     for item in order.items:
-        variant = db.query(ProductVariant).filter(
+        variant = db.query(ProductVariant).join(Product).filter(
+            Product.is_active == True,
+            Product.name == item.product_name,
             ProductVariant.weight_label == item.variant_label
         ).first()
         if variant:
@@ -320,10 +341,11 @@ async def cancel_order(order_id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/{order_id}/rate")
-def rate_order(order_id: str, req: OrderRatingRequest, db: Session = Depends(get_db)):
+def rate_order(order_id: str, req: OrderRatingRequest, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     """
     Submits 1-to-5 star rating for Rider Speed & Produce Freshness with review notes.
-    Saves feedback directly into database so Rider and Store Admin see it dynamically!
+    Saves feedback directly into database (both the order row and a dedicated
+    Rating row) so Rider and Store Admin see it dynamically.
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
@@ -332,6 +354,16 @@ def rate_order(order_id: str, req: OrderRatingRequest, db: Session = Depends(get
     order.rider_rating = req.rating
     order.freshness_rating = req.freshness_rating
     order.review_notes = req.review
+
+    # Persist a dedicated Rating row linked to the rider for the rider app & dashboards.
+    db.add(Rating(
+        order_id=order.id,
+        rider_id=order.rider_id,
+        user_id=order.user_id,
+        rider_rating=req.rating,
+        freshness_rating=req.freshness_rating,
+        review=req.review,
+    ))
     db.commit()
 
     return {
@@ -345,11 +377,30 @@ def rate_order(order_id: str, req: OrderRatingRequest, db: Session = Depends(get
 
 @router.get("/history/{user_id}")
 @router.get("/user/{user_id}")
-def get_user_order_history(user_id: str, db: Session = Depends(get_db)):
+def get_user_order_history(user_id: str, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     """
     Returns full order history with item details, delivery OTP, receipts, and status.
+    Authenticated callers can query their own history by id or phone; a guest
+    (dev) can still query by the supplied id for local testing.
     Queries flexibly by user_id or clean phone number so customer history is never lost.
     """
+    # Authorization: a CUSTOMER may only read their own orders.
+    role = user.get("role", "CUSTOMER")
+    if role == "CUSTOMER":
+        auth_sub = user.get("sub", "")
+        # Allow if the requested id matches the caller, or matches their phone,
+        # or the caller is a dev guest.
+        clean_phone = user_id.strip().replace("+91", "").replace(" ", "").replace("-", "")
+        allowed = (
+            auth_sub == "usr_guest_local"
+            or user_id == auth_sub
+            or user.get("phone") == user_id
+            or user.get("phone") == clean_phone
+            or f"usr_{clean_phone}" == auth_sub
+        )
+        if not allowed:
+            raise HTTPException(status_code=403, detail="You can only view your own order history.")
+
     clean_phone = user_id.strip().replace("+91", "").replace(" ", "").replace("-", "")
     users = db.query(User).filter((User.id == user_id) | (User.phone == clean_phone) | (User.phone == user_id) | (User.id == f"usr_{clean_phone}")).all()
     user_ids = [u.id for u in users]
@@ -392,20 +443,33 @@ def get_user_order_history(user_id: str, db: Session = Depends(get_db)):
     return res
 
 @router.get("/{order_id}/tracking")
-def get_order_tracking(order_id: str, db: Session = Depends(get_db)):
+def get_order_tracking(order_id: str, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     """
     Returns live delivery tracking steps, 4-digit Delivery OTP, and assigned rider coordinates.
     """
+    from app.models.models import Rider
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # A CUSTOMER may only track their own order.
+    if user.get("role") == "CUSTOMER" and order.user_id and user.get("sub") != "usr_guest_local" \
+            and order.user_id != user.get("sub"):
+        raise HTTPException(status_code=403, detail="You can only track your own orders.")
+
+    # Resolve the rider's real rating from the riders table (was hardcoded 4.9).
+    rider_rating = 5.0
+    if order.rider_id:
+        rider_row = db.query(Rider).filter(Rider.id == order.rider_id).first()
+        if rider_row:
+            rider_rating = rider_row.rating or 5.0
 
     rider_info = {
         "id": order.rider_id,
         "name": order.rider_name,
         "phone": order.rider_phone,
         "vehicle": order.rider_vehicle,
-        "rating": 4.9,
+        "rating": rider_rating,
         "current_lat": order.rider_lat,
         "current_lng": order.rider_lng,
     }
@@ -429,7 +493,7 @@ def get_order_tracking(order_id: str, db: Session = Depends(get_db)):
         "discount_amount": order.discount_amount,
         "delivery_fee": order.delivery_fee,
         "grand_total": order.grand_total,
-        "store_coordinates": {"lat": 17.495101, "lng": 78.367535},
+        "store_coordinates": {"lat": settings.STORE_LATITUDE, "lng": settings.STORE_LONGITUDE},
         "customer_coordinates": {"lat": order.latitude, "lng": order.longitude},
         "rider": rider_info if order.status in ["OUT_FOR_DELIVERY", "DELIVERED"] else None,
         "steps": steps,

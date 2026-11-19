@@ -4,41 +4,42 @@ from typing import Optional, Dict, Any
 from pydantic import BaseModel
 
 from app.database.db import get_db
-from app.models.models import Order
+from app.models.models import Order, Rider, RiderLocation
 from app.schemas.schemas import RiderLocationUpdate, VerifyDeliveryOTPRequest
 from app.api.v1.orders import ws_manager
 from app.core.security import get_current_rider
+from app.core.config import settings
+from datetime import datetime
 
 router = APIRouter(prefix="/rider", tags=["Delivery Partner (Rider) Operations"])
 
 class RiderDutyUpdate(BaseModel):
-    rider_id: str
     is_online: bool
-    current_lat: Optional[float] = 17.495101
-    current_lng: Optional[float] = 78.367535
+    current_lat: Optional[float] = None
+    current_lng: Optional[float] = None
 
-# In-memory rider state
-RIDER_STATE = {
-    "rider_id": "rdr_ravi_01",
-    "name": "Ravi Kumar",
-    "phone": "+91 98480 12345",
-    "vehicle": "Hero Electric (TS 07 EK 4921)",
-    "rating": 4.9,
-    "is_online": True,
-    "today_earnings": 385.0,
-    "completed_trips_today": 9,
-    "current_lat": 17.495101,
-    "current_lng": 78.367535,
-}
+
+def _resolve_rider(auth: dict, db: Session) -> Rider:
+    """Resolves the Rider row from the auth payload. Falls back to the first
+    active rider in dev (no token)."""
+    r = auth.get("rider")
+    if r is not None:
+        return r
+    # Dev fallback when no token was supplied.
+    r = db.query(Rider).filter(Rider.is_active == True).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="No active riders configured.")
+    return r
+
 
 @router.get("/profile")
-def get_rider_profile(db: Session = Depends(get_db)):
+def get_rider_profile(auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
     Returns current rider profile, live DB rating stats, completed trips, and online status.
     """
+    r = _resolve_rider(auth, db)
     delivered_orders = db.query(Order).filter(
-        Order.rider_id == RIDER_STATE["rider_id"],
-        Order.status == "DELIVERED"
+        Order.rider_id == r.id, Order.status == "DELIVERED"
     ).all()
 
     completed_trips = len(delivered_orders)
@@ -49,26 +50,27 @@ def get_rider_profile(db: Session = Depends(get_db)):
     avg_rating = round(sum(o.rider_rating for o in rated_orders) / len(rated_orders), 1) if rated_orders else 5.0
 
     return {
-        "rider_id": RIDER_STATE["rider_id"],
-        "name": RIDER_STATE["name"],
-        "phone": RIDER_STATE["phone"],
-        "vehicle": RIDER_STATE["vehicle"],
+        "rider_id": r.id,
+        "name": r.name,
+        "phone": r.phone,
+        "vehicle": r.vehicle or "—",
         "rating": avg_rating,
-        "is_online": RIDER_STATE["is_online"],
+        "is_online": r.is_online,
         "today_earnings": today_earnings,
         "completed_trips_today": completed_trips,
         "cod_cash_in_hand": cod_collected,
-        "current_lat": RIDER_STATE["current_lat"],
-        "current_lng": RIDER_STATE["current_lng"],
+        "current_lat": r.current_lat,
+        "current_lng": r.current_lng,
     }
 
 @router.get("/earnings")
-def get_rider_earnings(db: Session = Depends(get_db)):
+def get_rider_earnings(auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
     Returns 100% dynamic earnings, trip breakdowns, incentives, and COD floating cash from DB.
     """
+    r = _resolve_rider(auth, db)
     delivered_orders = db.query(Order).filter(
-        Order.rider_id == RIDER_STATE["rider_id"],
+        Order.rider_id == r.id,
         Order.status == "DELIVERED"
     ).order_by(Order.created_at.desc()).all()
 
@@ -119,11 +121,14 @@ def get_rider_earnings(db: Session = Depends(get_db)):
     }
 
 @router.get("/reviews")
-def get_rider_reviews(db: Session = Depends(get_db)):
+def get_rider_reviews(auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
     Returns live customer rating average, total rating count, and recent reviews from database.
     """
-    rated_orders = db.query(Order).filter(Order.rider_rating.isnot(None)).order_by(Order.created_at.desc()).all()
+    r = _resolve_rider(auth, db)
+    rated_orders = db.query(Order).filter(
+        Order.rider_id == r.id, Order.rider_rating.isnot(None)
+    ).order_by(Order.created_at.desc()).all()
 
     total_ratings = len(rated_orders)
     if total_ratings > 0:
@@ -149,24 +154,32 @@ def get_rider_reviews(db: Session = Depends(get_db)):
     }
 
 @router.post("/duty")
-def toggle_duty(update: RiderDutyUpdate, rider: Dict = Depends(get_current_rider)):
+def toggle_duty(update: RiderDutyUpdate, auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
-    Toggle rider online/offline duty.
+    Toggle rider online/offline duty. Persists to the riders table (was in-memory).
     """
-    RIDER_STATE["is_online"] = update.is_online
+    r = _resolve_rider(auth, db)
+    r.is_online = update.is_online
+    if update.current_lat is not None:
+        r.current_lat = update.current_lat
+    if update.current_lng is not None:
+        r.current_lng = update.current_lng
+    db.commit()
+    db.refresh(r)
     return {
         "success": True,
-        "is_online": RIDER_STATE["is_online"],
+        "is_online": r.is_online,
         "message": "You are now ONLINE and will receive delivery orders!" if update.is_online else "You are now OFFLINE."
     }
 
 @router.get("/orders/available")
-def get_available_orders(db: Session = Depends(get_db)):
+def get_available_orders(auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
     Fetches orders that are PACKED or PLACED and ready for delivery partner pickup.
     """
+    _resolve_rider(auth, db)  # ensures caller is a valid rider
     orders = db.query(Order).filter(Order.status.in_(["PLACED", "PACKED", "OUT_FOR_DELIVERY"])).order_by(Order.created_at.desc()).all()
-    
+
     res = []
     for o in orders:
         payout = 35.0 + (10.0 if o.distance_km > 3.0 else 0.0)
@@ -183,8 +196,8 @@ def get_available_orders(db: Session = Depends(get_db)):
             "payment_status": o.payment_status or "PAID",
             "payout_amount": payout,
             "scheduled_slot": o.scheduled_slot,
-            "pickup_hub": "Flash Fresh Central Dark Store (Metro Pillar 84)",
-            "customer_phone": "+91 98765 43210",
+            "pickup_hub": settings.STORE_NAME,
+            "customer_phone": o.user.phone if (o.user and o.user.phone) else "—",
             "latitude": o.latitude,
             "longitude": o.longitude,
             "rider_lat": o.rider_lat,
@@ -201,10 +214,11 @@ def get_available_orders(db: Session = Depends(get_db)):
     return res
 
 @router.post("/orders/{order_id}/accept")
-async def accept_order(order_id: str, db: Session = Depends(get_db), rider: Dict = Depends(get_current_rider)):
+async def accept_order(order_id: str, auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
     Rider accepts order atomically to prevent double claiming.
     """
+    r = _resolve_rider(auth, db)
     order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -212,14 +226,14 @@ async def accept_order(order_id: str, db: Session = Depends(get_db), rider: Dict
     if order.status in ["OUT_FOR_DELIVERY", "DELIVERED"]:
         raise HTTPException(status_code=400, detail="Order has already been picked up or delivered by another rider.")
 
-    if order.rider_id and order.rider_id != RIDER_STATE["rider_id"] and order.status == "OUT_FOR_DELIVERY":
+    if order.rider_id and order.rider_id != r.id and order.status == "OUT_FOR_DELIVERY":
         raise HTTPException(status_code=400, detail="Order has already been accepted by another fleet partner.")
 
     order.status = "PACKED"
-    order.rider_id = RIDER_STATE["rider_id"]
-    order.rider_name = RIDER_STATE["name"]
-    order.rider_phone = RIDER_STATE["phone"]
-    order.rider_vehicle = RIDER_STATE["vehicle"]
+    order.rider_id = r.id
+    order.rider_name = r.name
+    order.rider_phone = r.phone
+    order.rider_vehicle = r.vehicle
 
     db.commit()
     db.refresh(order)
@@ -239,16 +253,39 @@ async def accept_order(order_id: str, db: Session = Depends(get_db), rider: Dict
         "message": f"Order {order.order_number} accepted! Proceed to Central Dark Store Hub for pickup."
     }
 
-@router.post("/orders/{order_id}/pickup")
-async def pickup_order(order_id: str, db: Session = Depends(get_db), rider: Dict = Depends(get_current_rider)):
-    """
-    Rider collects packed bag from Central Hub and departs.
-    """
+@router.post("/orders/{order_id}/reject")
+async def reject_order(order_id: str, req: dict, auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
+    """Rider declines an order with a reason, so it can be re-dispatched."""
+    _resolve_rider(auth, db)
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    reason = (req.get("reason") or "Rider declined").strip()
+    # If this rider had been auto-assigned, clear the assignment so the store can re-assign.
+    if order.rider_id == auth.get("rider_id") or order.rider_id == auth.get("sub"):
+        order.rider_id = None
+        order.rider_name = None
+        order.rider_phone = None
+        order.rider_vehicle = None
+        db.commit()
+    return {"success": True, "order_id": order.id, "reason": reason,
+            "message": f"Order {order.order_number} declined. It will be re-offered to other riders."}
+
+@router.post("/orders/{order_id}/pickup")
+async def pickup_order(order_id: str, auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
+    """
+    Rider collects packed bag from Central Hub and departs.
+    """
+    r = _resolve_rider(auth, db)
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.rider_id and order.rider_id != r.id:
+        raise HTTPException(status_code=403, detail="This order is assigned to another rider.")
 
     order.status = "OUT_FOR_DELIVERY"
+    order.rider_lat = settings.STORE_LATITUDE
+    order.rider_lng = settings.STORE_LONGITUDE
     db.commit()
     db.refresh(order)
 
@@ -267,19 +304,26 @@ async def pickup_order(order_id: str, db: Session = Depends(get_db), rider: Dict
     }
 
 @router.post("/location/update")
-async def update_rider_location(req: RiderLocationUpdate, db: Session = Depends(get_db), rider: Dict = Depends(get_current_rider)):
+async def update_rider_location(req: RiderLocationUpdate, auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
-    Updates rider live GPS coordinates and broadcasts to customer's live tracking map.
+    Updates rider live GPS coordinates, persists a location-history row, and
+    broadcasts to the customer's live tracking map.
     """
+    r = _resolve_rider(auth, db)
     order = db.query(Order).filter(Order.id == req.order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     order.rider_lat = req.latitude
     order.rider_lng = req.longitude
-    RIDER_STATE["current_lat"] = req.latitude
-    RIDER_STATE["current_lng"] = req.longitude
+    r.current_lat = req.latitude
+    r.current_lng = req.longitude
 
+    # Persist location history (powers tracking replay & audit).
+    db.add(RiderLocation(
+        rider_id=r.id, order_id=order.id,
+        latitude=req.latitude, longitude=req.longitude,
+    ))
     db.commit()
 
     # Broadcast new rider coordinates via WebSocket
@@ -293,10 +337,11 @@ async def update_rider_location(req: RiderLocationUpdate, db: Session = Depends(
     return {"success": True, "order_id": order.id, "lat": req.latitude, "lng": req.longitude}
 
 @router.post("/orders/verify-delivery")
-async def verify_delivery_otp(req: VerifyDeliveryOTPRequest, db: Session = Depends(get_db), rider: Dict = Depends(get_current_rider)):
+async def verify_delivery_otp(req: VerifyDeliveryOTPRequest, auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
     Rider enters customer's 4-digit Delivery PIN code at doorstep.
     """
+    r = _resolve_rider(auth, db)
     order = db.query(Order).filter(Order.id == req.order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -310,8 +355,12 @@ async def verify_delivery_otp(req: VerifyDeliveryOTPRequest, db: Session = Depen
     db.refresh(order)
 
     payout = 35.0 + (10.0 if order.distance_km > 3.0 else 0.0)
-    RIDER_STATE["today_earnings"] += payout
-    RIDER_STATE["completed_trips_today"] += 1
+    # Persist earnings to the rider row (was in-memory RIDER_STATE).
+    r.today_earnings = (r.today_earnings or 0.0) + payout
+    r.completed_trips_today = (r.completed_trips_today or 0) + 1
+    if (order.payment_method or "").upper() == "COD":
+        r.cod_cash_in_hand = (r.cod_cash_in_hand or 0.0) + order.grand_total
+    db.commit()
 
     await ws_manager.broadcast_order_update(order.id, {
         "event": "STATUS_UPDATE",
@@ -325,6 +374,6 @@ async def verify_delivery_otp(req: VerifyDeliveryOTPRequest, db: Session = Depen
         "order_number": order.order_number,
         "status": order.status,
         "earned": payout,
-        "total_today_earnings": RIDER_STATE["today_earnings"],
+        "total_today_earnings": r.today_earnings,
         "message": f"Order {order.order_number} verified with OTP & delivered! ₹{payout:.0f} credited to wallet."
     }

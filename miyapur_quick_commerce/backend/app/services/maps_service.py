@@ -53,24 +53,26 @@ class MapsService:
     @classmethod
     def check_serviceability(cls, latitude: float, longitude: float, db=None) -> Dict[str, Any]:
         """
-        Validates delivery serviceability dynamically across the city.
+        Computes distance & ETA from the store hub. We deliver ANYWHERE —
+        there is no radius cap, so is_serviceable is always True. The distance
+        and ETA are kept so the store manager / rider know how far the drop is.
         """
         distance = cls.calculate_haversine_distance(settings.STORE_LATITUDE, settings.STORE_LONGITUDE, latitude, longitude)
-        is_serviceable = distance <= settings.MAX_DELIVERY_RADIUS_KM
+        # ETA scales with distance; capped only so the number stays sensible for
+        # very far drops — it is an estimate, not a hard SLA.
         eta_minutes = max(8, int(8 + (distance * 1.5)))
-        if eta_minutes > 35:
-            eta_minutes = 35
+        if eta_minutes > 120:
+            eta_minutes = 120
 
         return {
-            "is_serviceable": is_serviceable,
+            "is_serviceable": True,
             "distance_km": distance,
-            "max_allowed_radius_km": settings.MAX_DELIVERY_RADIUS_KM,
             "estimated_delivery_minutes": eta_minutes,
             "store_name": settings.STORE_NAME,
             "store_address": settings.STORE_ADDRESS,
             "store_latitude": settings.STORE_LATITUDE,
             "store_longitude": settings.STORE_LONGITUDE,
-            "message": f"Delivery available in ~{eta_minutes} mins!" if is_serviceable else f"Delivery not available. Location is {distance:.1f} km away (max {settings.MAX_DELIVERY_RADIUS_KM:.0f} km)."
+            "message": f"Delivery available in ~{eta_minutes} mins (distance {distance:.1f} km)."
         }
 
     @classmethod
@@ -164,7 +166,6 @@ class MapsService:
             "message": service_info["message"],
             "store_latitude": service_info["store_latitude"],
             "store_longitude": service_info["store_longitude"],
-            "max_allowed_radius_km": service_info["max_allowed_radius_km"],
         }
 
     @classmethod

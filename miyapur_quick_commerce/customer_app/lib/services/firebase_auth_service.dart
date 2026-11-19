@@ -27,6 +27,18 @@ class FirebaseAuthService {
 
   static bool get isConfigured => _isFirebaseReady && _auth != null;
 
+  /// Signs the current Firebase user out (clears the Firebase Phone-Auth session).
+  /// Safe to call even if Firebase failed to initialize.
+  static Future<void> signOut() async {
+    try {
+      if (_isFirebaseReady && _auth != null) {
+        await _auth!.signOut();
+      }
+    } catch (_) {
+      // Best-effort: the local cache (SharedPreferences) is cleared separately.
+    }
+  }
+
   /// Dispatches real SMS OTP via Firebase Phone Auth (10,000 Free SMS/Month)
   static Future<void> sendFirebaseOtp({
     required String phoneNumber,

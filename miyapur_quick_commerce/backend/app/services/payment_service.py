@@ -73,49 +73,57 @@ class PaymentService:
                     "amount_in_rupees": amount_in_rupees,
                     "currency": "INR"
                 }
-            elif response.status_code == 400 and "order_already_exists" in response.text:
+            # Cashfree returns 409 (Conflict) — NOT 400 — when an order with
+            # the same order_id already exists in the sandbox. The sandbox keeps
+            # order IDs for ~30 days and they are unique per merchant account, so
+            # collisions are common when the local order-number counter resets.
+            # When this happens we re-fetch the EXISTING order, which still has
+            # a valid payment_session_id, instead of inventing a fake mock one.
+            if response.status_code in (400, 409) and "order_already_exists" in response.text:
                 get_url = f"{cf_url}/{clean_order_id}"
                 get_res = requests.get(get_url, headers=headers, timeout=8)
                 if get_res.status_code == 200:
                     data = get_res.json()
-                    return {
-                        "success": True,
-                        "gateway": "CASHFREE_SANDBOX" if is_sandbox else "CASHFREE_LIVE",
-                        "order_id": data.get("order_id", clean_order_id),
-                        "cf_order_id": data.get("cf_order_id"),
-                        "payment_session_id": data.get("payment_session_id"),
-                        "amount_in_rupees": amount_in_rupees,
-                        "currency": "INR"
-                    }
+                    existing_session = data.get("payment_session_id")
+                    # An existing order that's already PAID has its session
+                    # stripped server-side; we must NOT reuse it (would let the
+                    # customer "pay" again for an already-paid order). Surface it.
+                    order_status = (data.get("order_status") or "").upper()
+                    if order_status == "PAID":
+                        return {
+                            "success": False,
+                            "error": "This order was already paid. Please refresh your orders.",
+                            "order_status": order_status,
+                        }
+                    if existing_session:
+                        return {
+                            "success": True,
+                            "gateway": "CASHFREE_SANDBOX" if is_sandbox else "CASHFREE_LIVE",
+                            "order_id": data.get("order_id", clean_order_id),
+                            "cf_order_id": data.get("cf_order_id"),
+                            "payment_session_id": existing_session,
+                            "amount_in_rupees": amount_in_rupees,
+                            "currency": "INR",
+                            "reused_existing": True,
+                        }
+                    # Exists but session gone (EXPIRED/PAID without session) —
+                    # fall through to the explicit failure below.
 
-            if is_sandbox or settings.ENVIRONMENT != "production":
-                return {
-                    "success": True,
-                    "gateway": "CASHFREE_SANDBOX_MOCK",
-                    "order_id": clean_order_id,
-                    "cf_order_id": f"cf_mock_{clean_order_id}",
-                    "payment_session_id": f"session_mock_{clean_order_id}",
-                    "amount_in_rupees": amount_in_rupees,
-                    "currency": "INR"
-                }
-
+            # IMPORTANT: no silent mock fallback. Previously, when the real
+            # Cashfree call failed, this branch returned a fake
+            # `session_mock_...` id. That fake id was stored on the order and
+            # handed to the Cashfree WebView SDK, which rejected it — so the
+            # order looked created but the customer could never pay. Now we
+            # return an explicit failure so /payments/cashfree-checkout can show
+            # the real reason, and the caller can retry with a fresh order id.
             return {
                 "success": False,
                 "status_code": response.status_code,
-                "error": response.text
+                "error": response.text[:500],
             }
         except Exception as e:
-            if is_sandbox or settings.ENVIRONMENT != "production":
-                return {
-                    "success": True,
-                    "gateway": "CASHFREE_SANDBOX_MOCK",
-                    "order_id": clean_order_id,
-                    "cf_order_id": f"cf_mock_{clean_order_id}",
-                    "payment_session_id": f"session_mock_{clean_order_id}",
-                    "amount_in_rupees": amount_in_rupees,
-                    "currency": "INR"
-                }
-            return {"success": False, "error": str(e)}
+            # No mock fallback on exception either — surface the real error.
+            return {"success": False, "error": f"{type(e).__name__}: {e}"}
 
     @staticmethod
     def verify_cashfree_order_status(order_id: str) -> Dict[str, Any]:

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../utils/preferences.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/liquid_toast.dart';
 import 'cashfree_web_view.dart';
@@ -33,11 +33,8 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   bool _isPlacingOrder = false;
-  final TextEditingController _promoController = TextEditingController();
 
   late LocationModel _activeLocation;
-  String _appliedPromoCode = "";
-  double _discountAmount = 0.0;
   String _selectedInstruction = "Don't ring bell";
 
   final List<String> _instructions = [
@@ -51,12 +48,46 @@ class _CartScreenState extends State<CartScreen> {
   void initState() {
     super.initState();
     _activeLocation = widget.deliveryLocation;
+    _refreshActiveLocationFromPrefs();
+  }
+
+  /// Reloads the active delivery location from SharedPreferences. The Profile
+  /// screen saves a new address directly to prefs, but the cart screen holds a
+  /// stale copy of the home-screen's location — so without this refresh the
+  /// customer could open the cart and still see "Tap to Set Delivery Address"
+  /// even after adding an address in their profile. We re-read the persisted
+  /// record so the cart always reflects the latest saved address.
+  void _refreshActiveLocationFromPrefs() {
+    final savedName = Preferences.getString(Preferences.keyActiveLocName);
+    if (savedName.isNotEmpty && !savedName.contains("Tap to Set")) {
+      final refreshed = LocationModel(
+        id: Preferences.getString(Preferences.keyActiveLocId, "loc_saved"),
+        name: savedName,
+        address: Preferences.getString(Preferences.keyActiveLocAddress),
+        latitude: Preferences.getDouble(Preferences.keyActiveLocLat, 17.495101),
+        longitude: Preferences.getDouble(Preferences.keyActiveLocLng, 78.367535),
+        landmark: "",
+        distanceKm: Preferences.getDouble(Preferences.keyActiveLocDist, 0.0),
+        isServiceable: Preferences.getBoolean(Preferences.keyActiveLocServiceable, true),
+        etaMinutes: Preferences.getInt(Preferences.keyActiveLocEta, 10),
+      );
+      // Only adopt it if it's more complete than what we already have (avoids
+      // overwriting an in-memory selection the user just made in this session).
+      if (_activeLocation.id == "unset_loc" ||
+          _activeLocation.name.contains("Tap to Set") ||
+          _activeLocation.address.contains("Select location")) {
+        _activeLocation = refreshed;
+      } else if (refreshed.id != _activeLocation.id) {
+        _activeLocation = refreshed;
+      }
+    }
   }
 
   double get itemsTotal =>
       widget.cartItems.fold(0.0, (sum, item) => sum + item.totalPrice);
 
-  double get netItemsTotal => (itemsTotal - _discountAmount).clamp(0, 99999);
+  // Promo codes have been retired — no discount is ever applied.
+  double get netItemsTotal => itemsTotal;
   double get deliveryFee =>
       (netItemsTotal >= 199.0 || itemsTotal == 0.0) ? 0.0 : 15.0;
   double get handlingFee => itemsTotal > 0 ? 4.0 : 0.0;
@@ -65,47 +96,6 @@ class _CartScreenState extends State<CartScreen> {
   double get grandTotal =>
       netItemsTotal + deliveryFee + handlingFee + gstAmount;
 
-  void _applyPromoCode() async {
-    final code = _promoController.text.trim();
-    if (code.isEmpty) return;
-
-    final res = await ApiService.validatePromoCode(code, itemsTotal);
-    if (mounted) {
-      if (res['success'] == true) {
-        setState(() {
-          _appliedPromoCode = res['code'];
-          _discountAmount = (res['discount_amount'] as num).toDouble();
-        });
-        LiquidToast.show(
-          context,
-          message: res['message'] ?? "🎉 Coupon applied successfully!",
-          icon: Icons.local_offer_rounded,
-          accentColor: const Color(0xFF059669),
-        );
-      } else {
-        LiquidToast.show(
-          context,
-          message: res['message'] ?? "Invalid promo code",
-          icon: Icons.warning_amber_rounded,
-          accentColor: Colors.redAccent,
-        );
-      }
-    }
-  }
-
-  void _removePromoCode() {
-    setState(() {
-      _appliedPromoCode = "";
-      _discountAmount = 0.0;
-      _promoController.clear();
-    });
-    LiquidToast.show(
-      context,
-      message: "Coupon removed",
-      icon: Icons.remove_circle_outline_rounded,
-      accentColor: Colors.grey.shade700,
-    );
-  }
 
   void _showMandatoryAddressPrompt() {
     final flatCtrl = TextEditingController();
@@ -218,11 +208,10 @@ class _CartScreenState extends State<CartScreen> {
                               detectedLat = (res["latitude"] ?? pos.latitude).toDouble();
                               detectedLng = (res["longitude"] ?? pos.longitude).toDouble();
                               detectedDistKm = dist;
-                              detectedServiceable = isSvc;
+                              detectedServiceable = true; // we deliver anywhere
                               detectedEta = eta;
-                              statusMessage = isSvc
-                                  ? "✅ In 10 KM delivery zone (${dist} KM from hub • ETA ~${eta} mins)"
-                                  : "❌ Delivery Not Available: ${dist} KM from hub (Exceeds 10 KM limit)";
+                              statusMessage =
+                                  "✅ Location detected (${dist.toStringAsFixed(1)} KM from hub • ETA ~${eta} mins)";
                             });
                           } catch (e) {
                             setModalState(() {
@@ -347,22 +336,13 @@ class _CartScreenState extends State<CartScreen> {
                   return;
                 }
 
-                if (detectedServiceable == false) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        "Delivery not available: Location is ${detectedDistKm ?? 0.0} KM from hub (exceeds 10 KM limit).",
-                      ),
-                      backgroundColor: Colors.red.shade700,
-                    ),
-                  );
-                  return;
-                }
+                // We deliver ANYWHERE — no radius cap, so we never block on
+                // distance. detectedServiceable is always true.
 
                 double finalLat = detectedLat ?? 17.495101;
                 double finalLng = detectedLng ?? 78.367535;
                 double finalDist = detectedDistKm ?? 0.8;
-                bool finalSvc = detectedServiceable ?? true;
+                bool finalSvc = true; // we deliver anywhere
                 int finalEta = detectedEta ?? 10;
 
                 if (detectedLat == null) {
@@ -610,6 +590,88 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  /// Shows the list of price changes detected during cart re-pricing and asks
+  /// the customer to confirm before placing the order. Returns true if the
+  /// customer accepts the new prices.
+  Future<bool> _showPriceChangeDialog(List<dynamic> changes) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.price_change_rounded, color: Color(0xFFD97706), size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "Prices updated",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF111827)),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Some prices changed since you added these items. Your cart has been updated to the latest prices.",
+                style: TextStyle(fontSize: 12, color: Colors.black87),
+              ),
+              const SizedBox(height: 12),
+              ...changes.map((c) {
+                final name = (c.name as String?) ?? '';
+                final variant = (c.variant as String?) ?? '';
+                final oldP = (c.oldPrice as num?)?.toDouble() ?? 0.0;
+                final newP = (c.newPrice as num?)?.toDouble() ?? 0.0;
+                final up = newP > oldP;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "$name ($variant)",
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+                        ),
+                      ),
+                      Text(
+                        "₹${oldP.toStringAsFixed(0)} → ₹${newP.toStringAsFixed(0)}",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: up ? Colors.redAccent : const Color(0xFF059669),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Review cart", style: TextStyle(color: Colors.black54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Continue to pay", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   void _handleCheckout() async {
     // 1. Mandatory Address Check: Only prompt if location is truly unset or placeholder
     bool isAddressUnset =
@@ -627,40 +689,61 @@ class _CartScreenState extends State<CartScreen> {
 
     setState(() => _isPlacingOrder = true);
 
-    // Pre-checkout price re-verification from database
-    final catalogRes = await ApiService.getProducts();
-    final liveProducts = catalogRes['products'] as List<ProductModel>? ?? [];
+    // ── Re-price cart items against the LIVE backend catalog before checkout ──
+    // The price displayed when an item was added to the cart may now be stale
+    // (store manager updated the price). We refresh prices from the backend and
+    // block checkout if the catalog cannot be reached or any item became
+    // unavailable, so the customer is never over/under-charged.
+    final reprice = await ApiService.repriceCartItems(widget.cartItems);
+    if (!mounted) return;
 
-    if (liveProducts.isNotEmpty) {
-      for (var cartItem in widget.cartItems) {
-        final liveProd = liveProducts.firstWhere(
-          (p) => p.id == cartItem.product.id || p.name == cartItem.product.name,
-          orElse: () => cartItem.product,
-        );
+    if (!reprice.ok) {
+      setState(() => _isPlacingOrder = false);
+      LiquidToast.show(
+        context,
+        message: reprice.error ?? "Cannot verify current prices. Please retry.",
+        icon: Icons.wifi_off_rounded,
+        accentColor: Colors.redAccent,
+      );
+      return;
+    }
 
-        final liveVar = liveProd.variants.firstWhere(
-          (v) => v.weightLabel.replaceAll(' ', '').toLowerCase() == cartItem.selectedVariant.weightLabel.replaceAll(' ', '').toLowerCase(),
-          orElse: () => cartItem.selectedVariant,
-        );
+    // Replace cart items with the freshly-priced versions and notify parent.
+    widget.cartItems
+      ..clear()
+      ..addAll(reprice.updatedItems);
+    widget.onCartUpdated();
 
-        cartItem.selectedVariant = liveVar;
-      }
+    if (reprice.unavailable.isNotEmpty) {
+      setState(() => _isPlacingOrder = false);
+      LiquidToast.show(
+        context,
+        message:
+            "Some items are no longer available and were removed:\n${reprice.unavailable.take(3).join(', ')}${reprice.unavailable.length > 3 ? ' …' : ''}",
+        icon: Icons.remove_shopping_cart_rounded,
+        accentColor: Colors.redAccent,
+      );
+      return;
+    }
+
+    if (reprice.priceChanges.isNotEmpty) {
+      // Show the price changes and ask the customer to confirm before paying.
+      setState(() => _isPlacingOrder = false);
+      final accepted = await _showPriceChangeDialog(reprice.priceChanges);
+      if (!accepted) return; // user declined — cart already updated, they can review
+      setState(() => _isPlacingOrder = true);
     }
 
     bool hasMeat = widget.cartItems.any((i) => i.product.isSundayOnly);
 
-    final prefs = await SharedPreferences.getInstance();
-    final savedUserId = prefs.getString("user_id") ?? widget.userId ?? "usr_9966114243";
-
     final orderRes = await ApiService.createOrder(
-      userId: savedUserId,
+      userId: widget.userId ?? "usr_local_mock",
       deliveryAddress: "${_activeLocation.name}, ${_activeLocation.address}",
       latitude: _activeLocation.latitude,
       longitude: _activeLocation.longitude,
       items: widget.cartItems,
       paymentMethod: "UPI",
       isSundayMeatOrder: hasMeat,
-      promoCode: _appliedPromoCode,
       deliveryInstructions: _selectedInstruction,
     );
 
@@ -700,10 +783,21 @@ class _CartScreenState extends State<CartScreen> {
         ),
       );
     } else {
+      // Surface the REAL backend reason. Previously this showed a generic
+      // "Unable to create order" snackbar, hiding the actual cause (out-of-
+      // radius address, stale cart item, rate limit, etc.). The backend now
+      // returns an actionable `detail`/`message` we can show verbatim.
+      final reason = (orderRes['message'] ?? orderRes['detail'] ?? 'Unable to create order. Please try again.').toString();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(orderRes['message'] ?? 'Unable to create order. Please check backend connection.'),
+          content: Text(reason),
           backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'Change Address',
+            textColor: Colors.white,
+            onPressed: () => _showMandatoryAddressPrompt(),
+          ),
         ),
       );
     }
@@ -787,12 +881,8 @@ class _CartScreenState extends State<CartScreen> {
                               color: const Color(0xFF059669).withOpacity(0.12),
                             ),
                             child: Icon(
-                              _activeLocation.isServiceable
-                                  ? Icons.bolt_rounded
-                                  : Icons.warning_rounded,
-                              color: _activeLocation.isServiceable
-                                  ? const Color(0xFF059669)
-                                  : Colors.red,
+                              Icons.bolt_rounded,
+                              color: const Color(0xFF059669),
                               size: 22,
                             ),
                           ),
@@ -810,14 +900,10 @@ class _CartScreenState extends State<CartScreen> {
                                   ),
                                 ),
                                 Text(
-                                  _activeLocation.isServiceable
-                                      ? "⚡ ~${_activeLocation.etaMinutes} mins (${_activeLocation.distanceKm} km from Central Hub)"
-                                      : "❌ Address outside 10 KM Central Hub boundary",
+                                  "⚡ ~${_activeLocation.etaMinutes} mins (${_activeLocation.distanceKm.toStringAsFixed(1)} km from Central Hub)",
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: _activeLocation.isServiceable
-                                        ? const Color(0xFF059669)
-                                        : Colors.red,
+                                    color: const Color(0xFF059669),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -974,156 +1060,6 @@ class _CartScreenState extends State<CartScreen> {
 
                     const SizedBox(height: 14),
 
-                    // Coupon Code Glass Card
-                    GlassCard(
-                      blur: 16,
-                      opacity: 0.9,
-                      borderRadius: 22,
-                      borderColor: Colors.grey.shade200,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(
-                                Icons.local_offer_rounded,
-                                color: Color(0xFF059669),
-                                size: 18,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                "Coupons & Offers",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: Color(0xFF111827),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          if (_appliedPromoCode.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF059669)
-                                    .withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color(0xFF059669)
-                                      .withOpacity(0.3),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.check_circle_rounded,
-                                    color: Color(0xFF059669),
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          "Coupon '$_appliedPromoCode' Applied",
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: Color(0xFF059669),
-                                          ),
-                                        ),
-                                        Text(
-                                          "Saved ₹${_discountAmount.toStringAsFixed(0)} on this order",
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey.shade700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: _removePromoCode,
-                                    child: const Text(
-                                      "Remove",
-                                      style: TextStyle(
-                                        color: Colors.red,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    height: 42,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.grey.shade300,
-                                      ),
-                                    ),
-                                    child: TextField(
-                                      controller: _promoController,
-                                      textCapitalization:
-                                          TextCapitalization.characters,
-                                      style: const TextStyle(
-                                        color: Color(0xFF111827),
-                                        fontSize: 13,
-                                      ),
-                                      decoration: InputDecoration(
-                                        hintText: "Enter Code (e.g. ZEPTO50)",
-                                        hintStyle: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade500,
-                                        ),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 10,
-                                            ),
-                                        border: InputBorder.none,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                ElevatedButton(
-                                  onPressed: _applyPromoCode,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF059669),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    "Apply",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
                     // Delivery Instructions Glass Selector
                     GlassCard(
                       blur: 16,
@@ -1200,12 +1136,6 @@ class _CartScreenState extends State<CartScreen> {
                             "EXEMPT (0%)",
                             isGreen: true,
                           ),
-                          if (_discountAmount > 0)
-                            _billRow(
-                              "Coupon Discount",
-                              "-₹${_discountAmount.toStringAsFixed(0)}",
-                              isGreen: true,
-                            ),
                           _billRow(
                             "Delivery Fee",
                             deliveryFee == 0

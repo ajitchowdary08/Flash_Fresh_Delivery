@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/firebase_auth_service.dart';
 import '../utils/preferences.dart';
 import '../widgets/liquid_toast.dart';
 import 'home_screen.dart';
@@ -171,17 +172,22 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _clearSession() async {
-    await Preferences.removeKey(Preferences.keyUserId);
-    await Preferences.removeKey(Preferences.keyUserPhone);
-    await Preferences.removeKey(Preferences.keyUserName);
-    await Preferences.removeKey(Preferences.keyUserEmail);
+    // Clear EVERYTHING: JWT token, profile, cart, favorites, saved addresses,
+    // cached orders. Previously this only removed profile keys, leaving the JWT
+    // and the previous user's cart/orders/favorites on the device — a cross-user
+    // data leak on shared phones.
+    await ApiService.clearLocalCache();
+    await FirebaseAuthService.signOut();
 
+    if (!mounted) return;
     setState(() {
       _currentIndex = 0;
       _isLoggedIn = false;
       _userId = null;
       _userPhone = "";
       _userName = "";
+      _cartItems.clear();
+      _favoriteProductIds.clear();
     });
   }
 

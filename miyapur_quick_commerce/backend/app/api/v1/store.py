@@ -3,11 +3,30 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import uuid
+import json
 
 from app.database.db import get_db
-from app.models.models import Order, Product, ProductVariant, Category, Rider
+from app.models.models import Order, Product, ProductVariant, Category, Rider, PromoCode, AuditLog
 from app.api.v1.orders import ws_manager
 from app.core.security import get_current_store_manager
+from app.core.config import settings
+
+
+def _audit(db: Session, actor: dict, action: str, entity_type: str, entity_id: str, details: dict):
+    """Records an admin mutation for compliance / who-did-what traceability."""
+    try:
+        db.add(AuditLog(
+            actor_id=actor.get("sub", "unknown"),
+            actor_role=actor.get("role", "MANAGER"),
+            action=action,
+            entity_type=entity_type,
+            entity_id=str(entity_id),
+            details=json.dumps(details, default=str),
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+
 
 router = APIRouter(prefix="/store", tags=["Dark Store Hub Operations"])
 
@@ -21,7 +40,7 @@ class QuickIntakeItem(BaseModel):
     added_qty: int
 
 @router.get("/dashboard-summary")
-def get_store_dashboard_summary(db: Session = Depends(get_db)):
+def get_store_dashboard_summary(db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
     """
     Returns store overview: orders waiting to be packed, out for delivery, delivered, and total catalog items.
     """
@@ -42,7 +61,7 @@ def get_store_dashboard_summary(db: Session = Depends(get_db)):
     }
 
 @router.get("/packing-queue")
-def get_packing_queue(db: Session = Depends(get_db)):
+def get_packing_queue(db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
     """
     Live queue of orders needing weighing, packing & bagging at central hub.
     """
@@ -72,7 +91,7 @@ def get_packing_queue(db: Session = Depends(get_db)):
     return result
 
 @router.post("/orders/{order_id}/mark-packed")
-def mark_order_packed(order_id: str, db: Session = Depends(get_db), manager: Dict = Depends(get_current_store_manager)):
+def mark_order_packed(order_id: str, db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
     """
     Store boy finishes weighing and bagging, marks order as PACKED.
     """
@@ -83,6 +102,7 @@ def mark_order_packed(order_id: str, db: Session = Depends(get_db), manager: Dic
     order.status = "PACKED"
     db.commit()
     db.refresh(order)
+    _audit(db, manager, "MARK_PACKED", "order", order.id, {"order_number": order.order_number})
 
     return {
         "success": True,
@@ -101,7 +121,7 @@ def mark_order_packed(order_id: str, db: Session = Depends(get_db), manager: Dic
     }
 
 @router.get("/inventory")
-def get_store_inventory(db: Session = Depends(get_db)):
+def get_store_inventory(db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
     """
     Returns live inventory of daily vegetables & Sunday meats.
     """
@@ -122,17 +142,19 @@ def get_store_inventory(db: Session = Depends(get_db)):
     return inventory_list
 
 @router.post("/inventory/update-stock")
-def update_stock(req: StockUpdateRequest, db: Session = Depends(get_db), manager: Dict = Depends(get_current_store_manager)):
+def update_stock(req: StockUpdateRequest, db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
     """
-    Updates stock quantity for a variant (e.g. morning veggie intake).
+    Quick stock correction by variant id.
     """
     variant = db.query(ProductVariant).filter(ProductVariant.id == req.variant_id).first()
     if not variant:
         raise HTTPException(status_code=404, detail="Variant not found")
 
+    old_stock = variant.stock_qty
     variant.stock_qty = req.new_stock_qty
     db.commit()
     db.refresh(variant)
+    _audit(db, manager, "STOCK_UPDATE", "variant", variant.id, {"old": old_stock, "new": req.new_stock_qty})
 
     return {
         "success": True,
@@ -143,36 +165,9 @@ def update_stock(req: StockUpdateRequest, db: Session = Depends(get_db), manager
     }
 
 
-# Active delivery fleet partners stationed at or near Miyapur Hub
-ACTIVE_RIDERS = [
-    {
-        "id": "rdr_ravi_01",
-        "name": "Ravi Kumar",
-        "phone": "+91 98480 12345",
-        "vehicle": "Hero Electric (TS 07 EK 4921)",
-        "rating": 4.9,
-        "status": "AVAILABLE",
-        "distance": "0.1 km from Hub",
-    },
-    {
-        "id": "rdr_suresh_02",
-        "name": "Suresh Goud",
-        "phone": "+91 98765 24680",
-        "vehicle": "Ather 450X (TS 08 FA 1024)",
-        "rating": 4.8,
-        "status": "AVAILABLE",
-        "distance": "0.4 km from Hub",
-    },
-    {
-        "id": "rdr_naresh_03",
-        "name": "Naresh Krishna",
-        "phone": "+91 91234 56789",
-        "vehicle": "Ola S1 Pro (TS 07 AB 9988)",
-        "rating": 4.9,
-        "status": "AVAILABLE",
-        "distance": "0.6 km from Hub",
-    },
-]
+# Active delivery fleet partners are now sourced LIVE from the `riders` table
+# (previously a hardcoded Python list). The store manager can onboard new riders
+# via the rider-creation endpoint and activate/deactivate them here.
 
 
 class AssignRiderRequest(BaseModel):
@@ -187,23 +182,57 @@ class RecordMeatWeightRequest(BaseModel):
 
 
 @router.get("/riders/active")
-def get_active_riders(db: Session = Depends(get_db)):
+def get_active_riders(db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
     """
-    Returns active fleet partners directly from the SQL database.
+    Returns fleet partners available around the Central Dark Store Hub — live from DB.
     """
-    riders = db.query(Rider).filter(Rider.is_online == True).all()
-    res = []
-    for r in riders:
-        res.append({
+    riders = db.query(Rider).filter(Rider.is_active == True).all()
+    return [
+        {
             "id": r.id,
             "name": r.name,
             "phone": r.phone,
-            "vehicle": r.vehicle,
+            "vehicle": r.vehicle or "—",
             "rating": r.rating,
-            "status": "AVAILABLE",
-            "distance": "0.2 km from Hub",
-        })
-    return res
+            "status": "AVAILABLE" if r.is_online else "OFFLINE",
+            "is_online": r.is_online,
+        }
+        for r in riders
+    ]
+
+
+@router.post("/riders/create")
+def create_rider(req: dict, db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
+    """Store manager onboards a new delivery partner. Creates both a Rider row
+    and a linked User (role=RIDER) so the rider can log in via OTP."""
+    from app.models.models import User as UserModel
+    phone = (req.get("phone") or "").strip().replace("+91", "").replace(" ", "").replace("-", "")
+    if len(phone) != 10 or not phone.isdigit():
+        raise HTTPException(status_code=400, detail="A valid 10-digit phone is required.")
+    name = (req.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Rider name is required.")
+    if db.query(Rider).filter(Rider.phone == phone).first():
+        raise HTTPException(status_code=400, detail="A rider with this phone already exists.")
+
+    u = UserModel(id=f"rdr_{phone}", phone=phone, name=name, role="RIDER")
+    db.add(u); db.commit(); db.refresh(u)
+    r = Rider(id=f"rdr_{phone}", phone=phone, name=name, vehicle=req.get("vehicle", ""),
+              rating=5.0, is_online=False, is_active=True, user_id=u.id)
+    db.add(r); db.commit(); db.refresh(r)
+    _audit(db, manager, "RIDER_ADD", "rider", r.id, {"name": name, "phone": phone})
+    return {"success": True, "rider_id": r.id, "message": f"Rider '{name}' onboarded."}
+
+
+@router.post("/riders/{rider_id}/toggle-active")
+def toggle_rider_active(rider_id: str, req: dict, db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
+    r = db.query(Rider).filter(Rider.id == rider_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Rider not found")
+    r.is_active = bool(req.get("is_active", not r.is_active))
+    db.commit()
+    _audit(db, manager, "RIDER_TOGGLE", "rider", r.id, {"is_active": r.is_active})
+    return {"success": True, "rider_id": r.id, "is_active": r.is_active}
 
 
 @router.post("/orders/{order_id}/assign-rider")
@@ -211,6 +240,7 @@ async def assign_rider_to_order(
     order_id: str,
     req: AssignRiderRequest,
     db: Session = Depends(get_db),
+    manager: dict = Depends(get_current_store_manager),
 ):
     """
     Store manager assigns an available rider to a packed order, triggering immediate dispatch.
@@ -219,35 +249,38 @@ async def assign_rider_to_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    rider = db.query(Rider).filter(Rider.id == req.rider_id).first()
-    if not rider:
-        rider = db.query(Rider).first()
+    # Resolve rider from DB (was: next((r for r in ACTIVE_RIDERS ...))).
+    rider_row = db.query(Rider).filter(Rider.id == req.rider_id).first()
+    if not rider_row:
+        raise HTTPException(status_code=404, detail="Selected rider not found in fleet.")
+    if not rider_row.is_active:
+        raise HTTPException(status_code=400, detail="That rider is currently deactivated.")
 
-    rider_info = {
-        "id": rider.id if rider else "rdr_ravi_01",
-        "name": rider.name if rider else "Ravi Kumar",
-        "phone": rider.phone if rider else "+91 98480 12345",
-        "vehicle": rider.vehicle if rider else "Hero Electric (TS 07 EK 4921)",
-        "rating": rider.rating if rider else 4.9,
+    rider = {
+        "id": rider_row.id,
+        "name": rider_row.name,
+        "phone": rider_row.phone,
+        "vehicle": rider_row.vehicle or "—",
     }
 
     order.status = "OUT_FOR_DELIVERY"
-    order.rider_id = rider_info["id"]
-    order.rider_name = rider_info["name"]
-    order.rider_phone = rider_info["phone"]
-    order.rider_vehicle = rider_info["vehicle"]
-    order.rider_lat = rider.current_lat if rider else 17.495101
-    order.rider_lng = rider.current_lng if rider else 78.367535
+    order.rider_id = rider_row.id
+    order.rider_name = rider_row.name
+    order.rider_phone = rider_row.phone
+    order.rider_vehicle = rider_row.vehicle
+    order.rider_lat = settings.STORE_LATITUDE if hasattr(settings, "STORE_LATITUDE") else 17.495101
+    order.rider_lng = settings.STORE_LONGITUDE if hasattr(settings, "STORE_LONGITUDE") else 78.367535
 
     db.commit()
     db.refresh(order)
+    _audit(db, manager, "ASSIGN_RIDER", "order", order.id, {"rider_id": rider_row.id, "rider_name": rider_row.name})
 
     # Broadcast live status update over WebSocket to customer app
     await ws_manager.broadcast_order_update(order.id, {
         "event": "STATUS_UPDATE",
         "status": "OUT_FOR_DELIVERY",
-        "message": f"Rider {rider_info['name']} ({rider_info['vehicle']}) has picked up your order!",
-        "rider": rider_info,
+        "message": f"Rider {rider['name']} ({rider['vehicle']}) has picked up your order!",
+        "rider": rider,
     })
 
     return {
@@ -255,8 +288,8 @@ async def assign_rider_to_order(
         "order_id": order.id,
         "order_number": order.order_number,
         "status": order.status,
-        "rider": rider_info,
-        "message": f"Assigned {rider_info['name']}! Order is now Out for Delivery.",
+        "rider": rider,
+        "message": f"Assigned {rider['name']}! Order is now Out for Delivery.",
     }
 
 
@@ -265,7 +298,7 @@ def record_meat_weight(
     order_id: str,
     req: RecordMeatWeightRequest,
     db: Session = Depends(get_db),
-    manager: Dict = Depends(get_current_store_manager),
+    manager: dict = Depends(get_current_store_manager),
 ):
     """
     Records verified meat weight, cutting style, and cleaning wash before bagging.
@@ -318,14 +351,14 @@ class DeleteProductRequest(BaseModel):
 
 
 @router.get("/catalog/all-categories")
-def get_all_categories(db: Session = Depends(get_db)):
+def get_all_categories(db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
     """Returns all product categories for the Add Product form dropdown."""
     categories = db.query(Category).order_by(Category.display_order).all()
     return [{"id": c.id, "name": c.name, "slug": c.slug, "icon": c.icon} for c in categories]
 
 
 @router.post("/catalog/add-product")
-def add_product(req: AddProductRequest, db: Session = Depends(get_db), manager: Dict = Depends(get_current_store_manager)):
+def add_product(req: AddProductRequest, db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
     """Admin: Add a new product + at least one variant to the catalog."""
     category = db.query(Category).filter(Category.id == req.category_id).first()
     if not category:
@@ -359,6 +392,7 @@ def add_product(req: AddProductRequest, db: Session = Depends(get_db), manager: 
         created_variants.append(variant)
 
     db.commit()
+    _audit(db, manager, "PRODUCT_ADD", "product", product.id, {"name": product.name, "variants": len(created_variants)})
 
     return {
         "success": True,
@@ -371,7 +405,7 @@ def add_product(req: AddProductRequest, db: Session = Depends(get_db), manager: 
 
 
 @router.post("/catalog/delete-product")
-def deactivate_product(req: DeleteProductRequest, db: Session = Depends(get_db), manager: Dict = Depends(get_current_store_manager)):
+def deactivate_product(req: DeleteProductRequest, db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
     """Admin: Soft-deactivate a product (sets is_active=False)."""
     product = db.query(Product).filter(Product.id == req.product_id).first()
     if not product:
@@ -383,6 +417,7 @@ def deactivate_product(req: DeleteProductRequest, db: Session = Depends(get_db),
 
     product.is_active = False
     db.commit()
+    _audit(db, manager, "PRODUCT_DEACTIVATE", "product", product.id, {"name": product.name})
 
     return {
         "success": True,
@@ -390,6 +425,66 @@ def deactivate_product(req: DeleteProductRequest, db: Session = Depends(get_db),
         "name": product.name,
         "message": f"'{product.name}' deactivated and removed from customer catalog.",
     }
+
+
+# -----------------------------------------------------------------------------
+# Promo Code Management (Admin CRUD) — promo codes now live in the DB.
+# -----------------------------------------------------------------------------
+
+class PromoCodeInput(BaseModel):
+    code: str
+    description: str = ""
+    discount_percent: float
+    max_discount: float
+    min_order: float = 0.0
+    is_active: bool = True
+
+
+@router.get("/promos")
+def list_promo_codes(db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
+    promos = db.query(PromoCode).order_by(PromoCode.created_at.desc()).all()
+    return [{
+        "id": p.id, "code": p.code, "description": p.description,
+        "discount_percent": p.discount_percent, "max_discount": p.max_discount,
+        "min_order": p.min_order, "is_active": p.is_active, "usage_count": p.usage_count,
+    } for p in promos]
+
+
+@router.post("/promos/create")
+def create_promo_code(req: PromoCodeInput, db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
+    code = req.code.strip().upper()
+    if not code:
+        raise HTTPException(status_code=400, detail="Promo code is required.")
+    if db.query(PromoCode).filter(PromoCode.code == code).first():
+        raise HTTPException(status_code=400, detail="This promo code already exists.")
+    p = PromoCode(code=code, description=req.description, discount_percent=req.discount_percent,
+                  max_discount=req.max_discount, min_order=req.min_order, is_active=req.is_active)
+    db.add(p); db.commit(); db.refresh(p)
+    _audit(db, manager, "PROMO_ADD", "promo", p.id, {"code": code})
+    return {"success": True, "promo_id": p.id, "code": code, "message": f"Promo '{code}' created."}
+
+
+@router.post("/promos/{promo_id}/toggle")
+def toggle_promo_active(promo_id: str, req: dict, db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
+    p = db.query(PromoCode).filter(PromoCode.id == promo_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Promo code not found")
+    p.is_active = bool(req.get("is_active", not p.is_active))
+    db.commit()
+    _audit(db, manager, "PROMO_TOGGLE", "promo", p.id, {"code": p.code, "is_active": p.is_active})
+    return {"success": True, "code": p.code, "is_active": p.is_active}
+
+
+@router.get("/audit-log")
+def get_audit_log(db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager), limit: int = 100):
+    """Returns the most recent admin mutations (who/what/when) for accountability."""
+    logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(min(limit, 500)).all()
+    return [{
+        "id": l.id, "actor_id": l.actor_id, "actor_role": l.actor_role, "action": l.action,
+        "entity_type": l.entity_type, "entity_id": l.entity_id, "details": l.details,
+        "created_at": l.created_at.strftime("%d %b %Y, %I:%M %p") if l.created_at else "",
+    } for l in logs]
+
 
 
 # --- Inline Edit: update product name, weight label, and price ---------------
@@ -404,7 +499,7 @@ class UpdateProductDetailRequest(BaseModel):
 
 
 @router.post("/inventory/update-product-detail")
-def update_product_detail(req: UpdateProductDetailRequest, db: Session = Depends(get_db), manager: Dict = Depends(get_current_store_manager)):
+def update_product_detail(req: UpdateProductDetailRequest, db: Session = Depends(get_db), manager: dict = Depends(get_current_store_manager)):
     """
     Admin inline edit: update product name, weight label, selling price, and stock qty.
     All four fields are saved in a single call from the inventory table row.
@@ -420,11 +515,17 @@ def update_product_detail(req: UpdateProductDetailRequest, db: Session = Depends
     if not variant:
         raise HTTPException(status_code=404, detail="Variant not found")
 
+    old_price = variant.price
+    old_stock = variant.stock_qty
     product.name = req.product_name.strip()
     variant.weight_label = req.weight_label.strip()
     variant.price = req.price
     variant.stock_qty = req.stock_qty
     db.commit()
+    _audit(db, manager, "PRICE_UPDATE", "variant", variant.id, {
+        "product": product.name, "old_price": old_price, "new_price": req.price,
+        "old_stock": old_stock, "new_stock": req.stock_qty,
+    })
 
     return {
         "success": True,

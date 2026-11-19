@@ -44,6 +44,8 @@ def send_otp(req: SendOTPRequest):
 def verify_otp(req: VerifyOTPRequest, db: Session = Depends(get_db)):
     """
     Verifies the OTP code and creates/fetches the user account with a signed JWT token.
+    The JWT role is taken from the user's DB row (CUSTOMER / RIDER / MANAGER / ADMIN),
+    so the same OTP flow authenticates customers, riders and store managers.
     """
     res = otp_service.verify_otp(req.phone, req.otp)
     if not res["success"]:
@@ -56,13 +58,18 @@ def verify_otp(req: VerifyOTPRequest, db: Session = Depends(get_db)):
             id=f"usr_{clean_phone}",
             phone=clean_phone,
             name=req.name or f"Customer ({clean_phone[-4:]})",
-            email=""
+            email="",
+            role="CUSTOMER",
         )
         db.add(user)
         db.commit()
         db.refresh(user)
 
-    jwt_token = otp_service.create_jwt_token(user_id=user.id, phone=user.phone)
+    # If the account has been deactivated (banned), refuse login.
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="This account has been deactivated. Please contact support.")
+
+    jwt_token = otp_service.create_jwt_token(user_id=user.id, phone=user.phone, role=user.role or "CUSTOMER")
 
     return AuthResponse(
         success=True,
@@ -87,13 +94,17 @@ def firebase_login(req: FirebaseLoginRequest, db: Session = Depends(get_db)):
             id=req.firebase_uid or str(uuid.uuid4()),
             phone=clean_phone,
             name=req.name or f"Customer ({clean_phone[-4:]})",
-            email=""
+            email="",
+            role="CUSTOMER",
         )
         db.add(user)
         db.commit()
         db.refresh(user)
 
-    jwt_token = otp_service.create_jwt_token(user_id=user.id, phone=user.phone)
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="This account has been deactivated. Please contact support.")
+
+    jwt_token = otp_service.create_jwt_token(user_id=user.id, phone=user.phone, role=user.role or "CUSTOMER")
 
     return AuthResponse(
         success=True,

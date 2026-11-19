@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:customer_app/utils/preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +18,40 @@ class ApiException implements Exception {
   String toString() => "ApiException($statusCode @ $endpoint): $message";
 }
 
+/// Describes a single price change detected while re-pricing the cart.
+class _PriceChange {
+  final String name;
+  final String variant;
+  final double oldPrice;
+  final double newPrice;
+  _PriceChange({
+    required this.name,
+    required this.variant,
+    required this.oldPrice,
+    required this.newPrice,
+  });
+}
+
+/// Result of [ApiService.repriceCartItems]. The cart screen uses this to:
+///   - show a warning if any price changed since the item was added,
+///   - block checkout if any item is now unavailable / out of stock,
+///   - replace the cart with the re-priced [updatedItems] before creating the order.
+class RepriceResult {
+  final bool ok;
+  final List<CartItemModel> updatedItems;
+  final List<_PriceChange> priceChanges;
+  final List<String> unavailable;
+  final String? error;
+
+  RepriceResult({
+    required this.ok,
+    required this.updatedItems,
+    required this.priceChanges,
+    required this.unavailable,
+    this.error,
+  });
+}
+
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
@@ -29,7 +64,34 @@ class ApiService {
   /// Verified from https://maps.app.goo.gl/5fc6a8ZMgjfttUiB9
   static const double hubLatitude = 17.495101;
   static const double hubLongitude = 78.367535;
-  static const double maxDeliveryRadiusKm = 999.0;
+  // 10 KM delivery geofence from the Central Dark Store Hub (matches backend
+  // MAX_DELIVERY_RADIUS_KM). Previously this was 999.0 which disabled the
+  // client-side geofence check entirely.
+  static const double maxDeliveryRadiusKm = 10.0;
+
+  /// Returns the JWT auth headers for the currently logged-in customer. The
+  /// token is read from SharedPreferences on every call so a fresh login is
+  /// picked up immediately. Attach these to EVERY authenticated request so the
+  /// backend can authorize the caller (the backend now enforces JWT on all
+  /// order/payment/profile routes).
+  static Map<String, String> authHeaders({Map<String, String>? extra}) {
+    final token = Preferences.getString(Preferences.keyJwtToken);
+    final headers = <String, String>{
+      "Content-Type": "application/json",
+      if (token.isNotEmpty) "Authorization": "Bearer $token",
+    };
+    if (extra != null) headers.addAll(extra);
+    return headers;
+  }
+
+  /// Clears ALL locally cached customer data. Called on logout / account switch
+  /// so that one customer's cart, orders, favorites and saved addresses never
+  /// leak to the next user on a shared device.
+  static Future<void> clearLocalCache() async {
+    _localOrders.clear();
+    _localProfiles.clear();
+    await Preferences.clearAll();
+  }
 
   static final List<LocationModel> fallbackLocations = [];
   static final List<LocationModel> nearbyLocations = [];
@@ -414,8 +476,11 @@ class ApiService {
 
     try {
       final response = await http
-          .get(Uri.parse("$baseUrl/orders/history/$userId"))
-          .timeout(const Duration(seconds: 4));
+          .get(
+            Uri.parse("$baseUrl/orders/history/$userId"),
+            headers: authHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         List data = jsonDecode(response.body);
@@ -443,93 +508,67 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getOrderTracking(String orderId) async {
+    // No fake-rider fallback: a network error must surface as an error, not a
+    // phantom "Ravi Kumar" rider with OTP 4921. The caller shows a retry state.
     try {
       final response = await http
-          .get(Uri.parse("$baseUrl/orders/$orderId/tracking"))
-          .timeout(const Duration(seconds: 4));
+          .get(
+            Uri.parse("$baseUrl/orders/$orderId/tracking"),
+            headers: authHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-    } catch (_) {}
-
-    return {
-      "order_id": orderId,
-      "order_number": "MYP-9842",
-      "status": "OUT_FOR_DELIVERY",
-      "delivery_eta_mins": 12,
-      "delivery_otp": "4921",
-      "rider": {
-        "name": "Ravi Kumar",
-        "phone": "+91 98480 12345",
-        "vehicle": "Hero Electric (TS 07 EK 4921)",
-        "rating": 4.9,
-        "current_lat": 17.495101,
-        "current_lng": 78.367535,
-      },
-    };
+      return {
+        "success": false,
+        "error":
+            "Couldn't load tracking (HTTP ${response.statusCode}). Please retry.",
+      };
+    } catch (_) {
+      return {
+        "success": false,
+        "error":
+            "Couldn't reach tracking service. Please check your connection.",
+      };
+    }
   }
 
   static Future<Map<String, dynamic>> validatePromoCode(
     String code,
     double itemsTotal,
   ) async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse("$baseUrl/catalog/promos/validate"),
-            headers: {"Content-Type": "application/json"},
-            body: jsonEncode({"code": code, "items_total": itemsTotal}),
-          )
-          .timeout(const Duration(seconds: 15));
-
-      return jsonDecode(response.body);
-    } catch (_) {}
-
-    if (code.toUpperCase() == "ZEPTO50" && itemsTotal >= 149) {
-      double disc = (itemsTotal * 0.20).clamp(0, 50);
-      return {
-        "success": true,
-        "code": "ZEPTO50",
-        "discount_amount": disc,
-        "message": "Coupon ZEPTO50 applied! Saved ₹${disc.toStringAsFixed(0)}.",
-      };
-    } else if (code.toUpperCase() == "FLASH100" && itemsTotal >= 299) {
-      double disc = (itemsTotal * 0.25).clamp(0, 100);
-      return {
-        "success": true,
-        "code": "FLASH100",
-        "discount_amount": disc,
-        "message":
-            "Coupon FLASH100 applied! Saved ₹${disc.toStringAsFixed(0)}.",
-      };
-    }
-
+    // Promo codes have been RETIRED. This method is kept for backward
+    // compatibility with any caller that still references it, but it always
+    // returns success=false so no discount is ever applied at checkout.
     return {
       "success": false,
-      "message": "Invalid promo code or minimum order value not met.",
+      "message": "Promo codes are no longer available.",
     };
   }
 
   static Future<List<ProductModel>> searchProducts(String query) async {
+    // No static fallback — search results must come from the live backend so
+    // they reflect current prices. On failure we return an empty list (the UI
+    // shows "No matching places found") instead of stale hardcoded products.
     try {
       final response = await http
-          .get(Uri.parse("$baseUrl/catalog/search?query=$query"))
-          .timeout(const Duration(seconds: 4));
+          .get(
+            Uri.parse(
+              "$baseUrl/catalog/search?query=${Uri.encodeQueryComponent(query)}",
+            ),
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
-        List data = jsonDecode(response.body);
-        return data.map((x) => ProductModel.fromJson(x)).toList();
+        List data = jsonDecode(response.body) as List? ?? [];
+        return data
+            .map((x) => ProductModel.fromJson(x as Map<String, dynamic>))
+            .toList();
       }
     } catch (_) {}
-
-    return _getStaticProducts(false)
-        .where(
-          (p) =>
-              p.name.toLowerCase().contains(query.toLowerCase()) ||
-              p.description.toLowerCase().contains(query.toLowerCase()),
-        )
-        .toList();
+    return <ProductModel>[];
   }
 
   static Future<List<LocationModel>> getLocations({String query = ""}) async {
@@ -690,18 +729,16 @@ class ApiService {
             math.sin(dLng / 2));
     double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     double distance = double.parse((R * c).toStringAsFixed(2));
-    bool serviceable = distance <= maxDeliveryRadiusKm;
-    int eta = serviceable ? (8 + distance * 1.5).toInt().clamp(0, 25) : 0;
+    // We deliver ANYWHERE — there is no radius cap. is_serviceable is always
+    // true; distance & ETA are kept for display.
+    int eta = (8 + distance * 1.5).toInt().clamp(8, 120);
     return {
-      "is_serviceable": serviceable,
+      "is_serviceable": true,
       "distance_km": distance,
-      "max_allowed_radius_km": maxDeliveryRadiusKm,
-      "estimated_delivery_minutes": serviceable ? eta : null,
+      "estimated_delivery_minutes": eta,
       "store_latitude": hubLatitude,
       "store_longitude": hubLongitude,
-      "message": serviceable
-          ? "Delivery available in ~$eta mins!"
-          : "Delivery not available. Your location is $distance KM away, which exceeds the 10 KM delivery radius from the Miyapur Central Dark Store Hub.",
+      "message": "Delivery available in ~$eta mins (distance $distance km).",
     };
   }
 
@@ -710,31 +747,141 @@ class ApiService {
   static Future<Map<String, dynamic>> getProducts({
     bool forceSunday = false,
   }) async {
+    // IMPORTANT: there is NO static fallback here on purpose. Earlier this method
+    // returned a hardcoded `_getStaticProducts()` list whenever the backend was
+    // slow (Render free-tier cold start > 6s), unreachable, or returned an empty
+    // list. That silently showed STALE prices that never reflected manager price
+    // updates made in the store dashboard. Now we surface a real error state so
+    // the UI can show "Catalog unavailable — retry" instead of lying to the user.
     try {
       String dayParam = forceSunday ? "sunday" : "weekday";
+      // 12s timeout — Render free tier can take 30-60s to cold-start, but a
+      // warm instance responds in <1s. 12s is a reasonable upper bound.
       final response = await http
           .get(Uri.parse("$baseUrl/catalog/products?day_override=$dayParam"))
-          .timeout(const Duration(seconds: 6));
+          .timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
         var body = jsonDecode(response.body);
-        List rawList = body['products'] as List;
+        List rawList = body['products'] as List? ?? [];
         List<ProductModel> products = rawList
-            .map((x) => ProductModel.fromJson(x))
+            .map((x) => ProductModel.fromJson(x as Map<String, dynamic>))
             .toList();
-        if (products.isNotEmpty) {
-          return {
-            "is_sunday": body['is_sunday'] ?? forceSunday,
-            "products": products,
-          };
+        // An empty list is a VALID backend response (e.g. manager deactivated
+        // everything). Do NOT fall back to static data — show the empty catalog.
+        return {
+          "is_sunday": body['is_sunday'] ?? forceSunday,
+          "products": products,
+          "from_backend": true,
+        };
+      }
+      return {
+        "is_sunday": forceSunday,
+        "products": <ProductModel>[],
+        "from_backend": false,
+        "error": "Server returned ${response.statusCode}. Please retry.",
+      };
+    } catch (e) {
+      return {
+        "is_sunday": forceSunday,
+        "products": <ProductModel>[],
+        "from_backend": false,
+        "error":
+            "Cannot reach catalog service. Check your connection and retry.",
+      };
+    }
+  }
+
+  /// Refreshes the prices & stock of every item currently in the cart by
+  /// re-fetching the live catalog from the backend. This MUST be called before
+  /// checkout so the customer is charged the CURRENT price the store manager
+  /// set — not the price that was displayed when the item was added to the cart
+  /// (which may be hours or days stale).
+  ///
+  /// Returns a [RepriceResult] describing what changed. The caller should:
+  ///   - show a warning if any price changed,
+  ///   - block checkout if any item went out of stock or was deactivated.
+  static Future<RepriceResult> repriceCartItems(
+    List<CartItemModel> cartItems,
+  ) async {
+    if (cartItems.isEmpty) {
+      return RepriceResult(
+        ok: true,
+        updatedItems: cartItems,
+        priceChanges: [],
+        unavailable: [],
+      );
+    }
+
+    final res = await getProducts();
+    if (res['from_backend'] != true) {
+      // Could not reach the backend — do NOT silently proceed with stale prices.
+      return RepriceResult(
+        ok: false,
+        updatedItems: cartItems,
+        priceChanges: [],
+        unavailable: [],
+        error: res['error'] ?? 'Cannot verify current prices. Please check your connection and retry.',
+      );
+    }
+
+    final backendProducts = res['products'] as List<ProductModel>;
+    // Index by product id -> variant id for O(1) lookup.
+    final byId = <String, ProductModel>{for (var p in backendProducts) p.id: p};
+
+    final updated = <CartItemModel>[];
+    final changes = <_PriceChange>[];
+    final unavailable = <String>[];
+
+    for (var item in cartItems) {
+      final product = byId[item.product.id];
+      if (product == null) {
+        unavailable.add(
+          '${item.product.name} (${item.selectedVariant.weightLabel})',
+        );
+        continue;
+      }
+      ProductVariantModel? variant;
+      for (var v in product.variants) {
+        if (v.id == item.selectedVariant.id ||
+            v.weightLabel == item.selectedVariant.weightLabel) {
+          variant = v;
+          break;
         }
       }
-    } catch (_) {}
+      if (variant == null) {
+        unavailable.add(
+          '${item.product.name} (${item.selectedVariant.weightLabel})',
+        );
+        continue;
+      }
+      final newPrice = variant.price;
+      if ((newPrice - item.selectedVariant.price).abs() > 0.01) {
+        changes.add(
+          _PriceChange(
+            name: product.name,
+            variant: variant.weightLabel,
+            oldPrice: item.selectedVariant.price,
+            newPrice: newPrice,
+          ),
+        );
+      }
+      // Rebuild the cart item with the freshly-priced variant (and refreshed stock).
+      updated.add(
+        CartItemModel(
+          product: product,
+          selectedVariant: variant,
+          quantity: item.quantity,
+        ),
+      );
+    }
 
-    return {
-      "is_sunday": forceSunday,
-      "products": _getStaticProducts(forceSunday),
-    };
+    return RepriceResult(
+      ok: true,
+      updatedItems: updated,
+      priceChanges: changes,
+      unavailable: unavailable,
+    );
   }
 
   static Future<Map<String, dynamic>> createOrder({
@@ -745,7 +892,6 @@ class ApiService {
     required List<CartItemModel> items,
     required String paymentMethod,
     required bool isSundayMeatOrder,
-    String promoCode = "",
     String deliveryInstructions = "",
   }) async {
     var itemsPayload = items
@@ -755,19 +901,23 @@ class ApiService {
             "variant_label": i.selectedVariant.weightLabel,
             "quantity": i.quantity,
             "unit_price": i.selectedVariant.price,
+            // Send the exact catalog UUIDs so the backend can look up the
+            // authoritative price by variant_id (not just weight_label) and
+            // ignore the client-supplied unit_price above.
+            "product_id": i.product.id,
+            "variant_id": i.selectedVariant.id,
           },
         )
         .toList();
 
     double itemsTotal = items.fold(0.0, (acc, item) => acc + item.totalPrice);
+    // Promo codes have been retired — no discount is ever applied. The
+    // customer pays items_total + fees (matching the backend, which also
+    // applies no discount).
     double discount = 0.0;
-    if (promoCode.toUpperCase() == "ZEPTO50" && itemsTotal >= 149) {
-      discount = (itemsTotal * 0.20).clamp(0, 50);
-    } else if (promoCode.toUpperCase() == "MIYAPUR100" && itemsTotal >= 299) {
-      discount = (itemsTotal * 0.25).clamp(0, 100);
-    }
+    String promoCode = "";
 
-    double netItems = (itemsTotal - discount).clamp(0, 99999);
+    double netItems = itemsTotal;
     double deliveryFee = netItems >= 199.0 ? 0.0 : 15.0;
     double grandTotal = netItems + deliveryFee;
 
@@ -845,10 +995,18 @@ class ApiService {
     } catch (_) {}
 
     try {
+      // Idempotency key: stable per cart+user+payment snapshot for 10 minutes.
+      // If the customer double-taps "Pay" or the network retries after a
+      // timeout, the backend returns the SAME order instead of creating a
+      // duplicate (and double-charging). The key is derived from the cart
+      // contents + user + timestamp-minute window so a genuinely new cart
+      // still creates a new order.
+      final idemKey =
+          "idem_${userId}_${items.length}_${grandTotal.toStringAsFixed(2)}_${(DateTime.now().millisecondsSinceEpoch ~/ 600000)}";
       final response = await http
           .post(
             Uri.parse("$baseUrl/orders/create"),
-            headers: {"Content-Type": "application/json"},
+            headers: authHeaders(),
             body: jsonEncode({
               "user_id": userId,
               "delivery_address": deliveryAddress,
@@ -857,11 +1015,11 @@ class ApiService {
               "items": itemsPayload,
               "payment_method": paymentMethod,
               "is_sunday_meat_order": isSundayMeatOrder,
-              "promo_code": promoCode,
               "delivery_instructions": deliveryInstructions,
+              "idempotency_key": idemKey,
             }),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -896,11 +1054,13 @@ class ApiService {
     required String paymentMethod,
     String? transactionId,
   }) async {
+    // No fake "PAID" success on failure — the order must actually be verified
+    // server-side before the user believes their payment went through.
     try {
       final response = await http
           .post(
             Uri.parse("$baseUrl/payments/verify"),
-            headers: {"Content-Type": "application/json"},
+            headers: authHeaders(),
             body: jsonEncode({
               "order_id": orderId,
               "payment_method": paymentMethod,
@@ -912,15 +1072,27 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-    } catch (_) {}
-
-    return {
-      "success": true,
-      "status": "PAID",
-      "order_id": orderId,
-      "order_status": "PACKED",
-      "message": "Payment verified successfully.",
-    };
+      try {
+        final err = jsonDecode(response.body);
+        return {
+          "success": false,
+          "message":
+              err["detail"] ??
+              "Payment verification failed (HTTP ${response.statusCode}).",
+        };
+      } catch (_) {
+        return {
+          "success": false,
+          "message":
+              "Payment verification failed (HTTP ${response.statusCode}). Please try again.",
+        };
+      }
+    } catch (_) {
+      return {
+        "success": false,
+        "message": "Couldn't reach the payment service. Please check your connection and retry.",
+      };
+    }
   }
 
   static Future<Map<String, dynamic>> verifyCashfreePayment(
@@ -968,44 +1140,33 @@ class ApiService {
 
   // 16. Cancel Order
   static Future<Map<String, dynamic>> cancelOrder(String orderId) async {
-    // Update local cache
-    for (var i = 0; i < _localOrders.length; i++) {
-      if (_localOrders[i].orderId == orderId) {
-        _localOrders[i] = OrderHistoryModel(
-          orderId: _localOrders[i].orderId,
-          orderNumber: _localOrders[i].orderNumber,
-          status: "CANCELLED",
-          grandTotal: _localOrders[i].grandTotal,
-          itemsTotal: _localOrders[i].itemsTotal,
-          discountAmount: _localOrders[i].discountAmount,
-          promoCode: _localOrders[i].promoCode,
-          deliveryFee: _localOrders[i].deliveryFee,
-          deliveryOtp: _localOrders[i].deliveryOtp,
-          paymentStatus: "REFUNDED",
-          paymentMethod: _localOrders[i].paymentMethod,
-          deliveryAddress: _localOrders[i].deliveryAddress,
-          deliveryEtaMins: _localOrders[i].deliveryEtaMins,
-          createdAt: _localOrders[i].createdAt,
-          isSundayMeatOrder: _localOrders[i].isSundayMeatOrder,
-          items: _localOrders[i].items,
-        );
-      }
-    }
-
+    // The backend is the source of truth for order status & stock restoration.
+    // No fake "cancelled" success on network failure — surface the error so the
+    // user can retry instead of believing the order was cancelled when it wasn't.
     try {
       final response = await http
-          .post(Uri.parse("$baseUrl/orders/$orderId/cancel"))
-          .timeout(const Duration(seconds: 4));
+          .post(
+            Uri.parse("$baseUrl/orders/$orderId/cancel"),
+            headers: authHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
 
-      return jsonDecode(response.body);
-    } catch (_) {}
-
-    return {
-      "success": true,
-      "order_id": orderId,
-      "status": "CANCELLED",
-      "message": "Order cancelled successfully. Refund will be processed.",
-    };
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return body;
+      }
+      return {
+        "success": false,
+        "error":
+            body["detail"] ??
+            "Couldn't cancel the order (HTTP ${response.statusCode}).",
+      };
+    } catch (_) {
+      return {
+        "success": false,
+        "error": "Couldn't reach the server to cancel the order. Please check your connection and retry.",
+      };
+    }
   }
 
   // 17. Rate Order
@@ -1019,7 +1180,7 @@ class ApiService {
       final response = await http
           .post(
             Uri.parse("$baseUrl/orders/$orderId/rate"),
-            headers: {"Content-Type": "application/json"},
+            headers: authHeaders(),
             body: jsonEncode({
               "rating": riderRating,
               "freshness_rating": freshnessRating,

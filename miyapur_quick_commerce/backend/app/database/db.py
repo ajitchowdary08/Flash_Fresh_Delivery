@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import settings
-from app.models.models import Base, Category, Product, ProductVariant, Rider, PromoCode
+from app.models.models import Base, Category, Product, ProductVariant, Rider, PromoCode, User
 
 connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
@@ -16,6 +16,29 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+
+    # Lightweight additive migration: add columns that were introduced to
+    # already-existing tables (users.role, users.updated_at, orders.updated_at,
+    # orders.rider_* nullable changes, etc.) without dropping data. SQLite has
+    # no ALTER TABLE ADD COLUMN IF NOT EXISTS, so we introspect and skip errors.
+    from sqlalchemy import inspect, text
+    try:
+        inspector = inspect(engine)
+        def add_column_if_missing(table_name, column_name, column_ddl):
+            cols = [c["name"] for c in inspector.get_columns(table_name)]
+            if column_name not in cols:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_ddl}"))
+        add_column_if_missing("users", "role", "VARCHAR DEFAULT 'CUSTOMER'")
+        add_column_if_missing("users", "is_active", "BOOLEAN DEFAULT 1")
+        add_column_if_missing("users", "updated_at", "DATETIME")
+        add_column_if_missing("orders", "updated_at", "DATETIME")
+        # Make rider fields effectively nullable for old rows (SQLite ignores
+        # NOT NULL changes; new rows are created nullable by the model anyway).
+    except Exception:
+        # Migration is best-effort on dev DBs; production should use Alembic.
+        pass
+
     db = SessionLocal()
     try:
         # Helper to get or create category
@@ -135,26 +158,82 @@ def init_db():
         sync_prod(cat_fish.id, "Live Cleaned Sea Prawns (Medium)", "Deveined, peeled, juicy prawns.", "https://ik.imagekit.io/Ganapathi/flash_fresh_live_cleaned_sea_prawns_medium_600x600.jpg", True, [("250g", 230.0, 199.0, 20), ("500g", 440.0, 380.0, 15)])
         sync_prod(cat_fish.id, "Fresh Tender Mutton Curry Cut", "Fresh tender goat meat, cut with bone for rich gravy.", "https://ik.imagekit.io/Ganapathi/flash_fresh_fresh_tender_mutton_curry_cut_600x600.jpg", True, [("500g", 480.0, 420.0, 25), ("1kg", 950.0, 830.0, 15)])
 
-        # Seed Active Fleet Partners into DB if empty
-        if db.query(Rider).count() == 0:
-            riders_data = [
-                {"id": "rdr_ravi_01", "phone": "+91 98480 12345", "name": "Ravi Kumar", "vehicle": "Hero Electric (TS 07 EK 4921)"},
-                {"id": "rdr_suresh_02", "phone": "+91 98765 24680", "name": "Suresh Goud", "vehicle": "Ather 450X (TS 08 FA 1024)"},
-                {"id": "rdr_naresh_03", "phone": "+91 91234 56789", "name": "Naresh Krishna", "vehicle": "Ola S1 Pro (TS 07 AB 9988)"},
-            ]
-            for r in riders_data:
-                db.add(Rider(**r))
-            db.commit()
+        # ----------------------------------------------------------------------
+        # Seed the delivery fleet (previously a hardcoded Python list).
+        # Idempotent: only creates riders that don't already exist by phone.
+        # ----------------------------------------------------------------------
+        from app.models.models import Rider, PromoCode, User as UserModel
 
-        # Seed Active Promo Coupons into DB if empty
-        if db.query(PromoCode).count() == 0:
-            promos_data = [
-                {"code": "ZEPTO50", "discount_percent": 20.0, "max_discount": 50.0, "min_order": 149.0, "description": "Flat 20% OFF up to ₹50 on orders above ₹149"},
-                {"code": "FLASH100", "discount_percent": 25.0, "max_discount": 100.0, "min_order": 299.0, "description": "Flat 25% OFF up to ₹100 on Flash Mega Orders above ₹299"},
-                {"code": "SUNDAYMEAT", "discount_percent": 15.0, "max_discount": 75.0, "min_order": 199.0, "description": "Special 15% OFF on Sunday Fresh Meat & Seafood"},
-            ]
-            for p in promos_data:
-                db.add(PromoCode(**p))
+        def get_or_create_rider(phone, name, vehicle):
+            r = db.query(Rider).filter(Rider.phone == phone).first()
+            if r:
+                return r
+            # Mirror the rider as a User row (role=RIDER) so the OTP/JWT auth
+            # flow used by customers also works for riders — same code path.
+            u = db.query(UserModel).filter(UserModel.phone == phone).first()
+            if not u:
+                u = UserModel(id=f"rdr_{phone}", phone=phone, name=name, role="RIDER")
+                db.add(u)
+                db.commit()
+                db.refresh(u)
+            r = Rider(
+                id=f"rdr_{phone}",
+                phone=phone,
+                name=name,
+                vehicle=vehicle,
+                rating=4.9,
+                is_online=False,
+                is_active=True,
+                user_id=u.id,
+            )
+            db.add(r)
+            db.commit()
+            db.refresh(r)
+            return r
+
+        get_or_create_rider("9848012345", "Ravi Kumar", "Hero Electric (TS 07 EK 4921)")
+        get_or_create_rider("9876524680", "Suresh Goud", "Ather 450X (TS 08 FA 1024)")
+        get_or_create_rider("9123456789", "Naresh Krishna", "Ola S1 Pro (TS 07 AB 9988)")
+
+        # ----------------------------------------------------------------------
+        # Seed promo codes (previously a hardcoded Python dict in catalog.py).
+        # ----------------------------------------------------------------------
+        def get_or_create_promo(code, desc, pct, mx, mn):
+            p = db.query(PromoCode).filter(PromoCode.code == code).first()
+            if p:
+                return p
+            p = PromoCode(
+                code=code,
+                description=desc,
+                discount_percent=pct,
+                max_discount=mx,
+                min_order=mn,
+                is_active=True,
+            )
+            db.add(p)
+            db.commit()
+            db.refresh(p)
+            return p
+
+        get_or_create_promo("ZEPTO50", "Flat 20% OFF up to ₹50 on orders above ₹149", 20.0, 50.0, 149.0)
+        get_or_create_promo("FLASH100", "Flat 25% OFF up to ₹100 on Flash Mega Orders above ₹299", 25.0, 100.0, 299.0)
+        get_or_create_promo("SUNDAYMEAT", "Special 15% OFF on Sunday Fresh Meat & Seafood", 15.0, 75.0, 199.0)
+
+        # ----------------------------------------------------------------------
+        # Seed a default store-manager account (role=MANAGER). In production the
+        # manager logs in via OTP on this number. Default creds surfaced in the
+        # README. Idempotent.
+        # ----------------------------------------------------------------------
+        mgr = db.query(UserModel).filter(UserModel.phone == "9000011111").first()
+        if not mgr:
+            mgr = UserModel(
+                id="mgr_default_01",
+                phone="9000011111",
+                name="Store Manager",
+                role="MANAGER",
+                is_active=True,
+            )
+            db.add(mgr)
             db.commit()
 
     finally:

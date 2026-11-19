@@ -21,8 +21,9 @@ class GeocodePlaceRequest(BaseModel):
 def autocomplete_locations(query: str = ""):
     """
     Calls Google Places Autocomplete API or returns verified Miyapur delivery landmarks.
-    Each prediction carries its place_id; resolve it through /maps/geocode before
-    accepting the address, so the 10 KM geofence is enforced on the resolved coordinates.
+    Each prediction carries its place_id; resolve it through /maps/geocode to get
+    the resolved coordinates for the saved address. We deliver ANYWHERE — there is
+    no radius cap, so the resolved location is always accepted.
     """
     return maps_service.autocomplete_places(query)
 
@@ -30,8 +31,8 @@ def autocomplete_locations(query: str = ""):
 @router.get("/nearby")
 def get_nearby_locations(lat: Optional[float] = None, lng: Optional[float] = None):
     """
-    Returns verified delivery locations within the 10 KM radius of the Miyapur Central Hub.
-    If lat and lng are provided, distances are computed from the user's current coordinates
+    Returns nearby delivery locations around the Miyapur Central Hub. If lat and
+    lng are provided, distances are computed from the user's current coordinates
     and sorted closest to the user first.
     """
     return maps_service.get_nearby_locations(user_lat=lat, user_lng=lng)
@@ -40,9 +41,9 @@ def get_nearby_locations(lat: Optional[float] = None, lng: Optional[float] = Non
 @router.post("/check-serviceability")
 def check_serviceability(req: GeofenceCheckRequest):
     """
-    Verifies if coordinates fall strictly within the 10.0 KM delivery radius of the
-    Miyapur Central Dark Store Hub. This is the authoritative geofence check used by
-    every order, every saved address, and every GPS-detected location.
+    Returns the distance and ETA from the Miyapur Central Hub to the given
+    coordinates. We deliver ANYWHERE, so is_serviceable is always True — this
+    endpoint only provides distance/ETA info for display.
     """
     return maps_service.check_serviceability(req.latitude, req.longitude)
 
@@ -50,10 +51,9 @@ def check_serviceability(req: GeofenceCheckRequest):
 @router.post("/reverse-geocode")
 def reverse_geocode(req: ReverseGeocodeRequest):
     """
-    Reverse-geocodes GPS coordinates to a human-readable address AND runs the 10 KM
-    geofence check. The client calls this after detecting the user's current location
-    via the device GPS — if `is_serviceable` is False, the UI must show
-    'Delivery Not Available' and block checkout.
+    Reverse-geocodes GPS coordinates to a human-readable address and computes
+    the distance/ETA from the hub. is_serviceable is always True (we deliver
+    anywhere); the client uses the address + distance for display.
     """
     return maps_service.reverse_geocode(req.latitude, req.longitude)
 
@@ -61,9 +61,9 @@ def reverse_geocode(req: ReverseGeocodeRequest):
 @router.post("/geocode")
 def geocode_place(req: GeocodePlaceRequest):
     """
-    Resolves a Google Place ID (returned by /maps/locations) into coordinates and
-    runs the 10 KM geofence check. Used after a Places Autocomplete selection so the
-    chosen location is validated against the delivery radius before it is accepted.
+    Resolves a Google Place ID (returned by /maps/locations) into coordinates
+    and computes the distance/ETA. We deliver anywhere, so the resolved location
+    is always accepted.
     """
     result = maps_service.geocode_place(req.place_id)
     if result is None:
@@ -74,14 +74,13 @@ def geocode_place(req: GeocodePlaceRequest):
 @router.get("/hub")
 def get_hub_info():
     """
-    Returns the central Dark Store hub coordinates and delivery radius so the client
-    can render the geofence circle on the GoogleMap widget.
+    Returns the central Dark Store hub coordinates. Used by the client to center
+    the GoogleMap widget on the hub. There is no delivery-radius cap.
     """
     return {
         "store_name": settings.STORE_NAME,
         "store_latitude": settings.STORE_LATITUDE,
         "store_longitude": settings.STORE_LONGITUDE,
-        "max_allowed_radius_km": settings.MAX_DELIVERY_RADIUS_KM,
         "store_address": settings.STORE_ADDRESS,
     }
 

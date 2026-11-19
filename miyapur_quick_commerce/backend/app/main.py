@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from collections import defaultdict, deque
+import time
+import os
 from app.core.config import settings
 from app.database.db import init_db
 from app.api.v1.auth import router as auth_router
@@ -20,13 +24,55 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# CORS allow-list from env. Never "*" in production. Comma-separated origins.
+_origins_raw = os.getenv("CORS_ORIGINS", "*")
+_allowed_origins = (
+    ["*"] if _origins_raw.strip() == "*" else [o.strip() for o in _origins_raw.split(",") if o.strip()]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_allowed_origins,
+    allow_credentials=_allowed_origins != ["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+
+# --- Simple in-memory rate limiter (per IP) for sensitive endpoints. -------
+# Production should swap this for Redis-backed slowapi, but this stops the most
+# common abuse (OTP SMS flooding, order spam) out of the box.
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, max_requests: int = 60, window_seconds: int = 60):
+        super().__init__(app)
+        self.max_requests = max_requests
+        self.window = window_seconds
+        self.hits = defaultdict(deque)
+        # Stricter limits for expensive endpoints.
+        self.strict_paths = {"/api/v1/auth/send-otp", "/api/v1/orders/create"}
+        self.strict_max = 5
+
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+        if path in self.strict_paths or path.startswith("/api/v1/auth/send-otp"):
+            limit = self.strict_max
+        else:
+            limit = self.max_requests
+        client = request.client.host if request.client else "unknown"
+        key = f"{client}:{path}"
+        now = time.time()
+        q = self.hits[key]
+        while q and now - q[0] > self.window:
+            q.popleft()
+        if len(q) >= limit:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please slow down and retry shortly."},
+            )
+        q.append(now)
+        return await call_next(request)
+
+
+app.add_middleware(RateLimitMiddleware, max_requests=60, window_seconds=60)
 
 app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(maps_router, prefix=settings.API_V1_STR)

@@ -42,6 +42,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _isSundayMode = false;
   bool _isLoading = true;
+  String? _loadError; // non-null when the catalog could not be fetched from the backend
   bool _isNonVegMode = false; // Default: Veg Mode
   String _selectedCategory = "all";
   final TextEditingController _searchController = TextEditingController();
@@ -103,11 +104,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _loadProducts() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     final res = await ApiService.getProducts(forceSunday: _isSundayMode);
     if (!mounted) return;
+    final fromBackend = res['from_backend'] == true;
     setState(() {
-      _allProducts = res['products'] as List<ProductModel>;
+      _allProducts = (res['products'] as List).cast<ProductModel>();
+      _loadError = fromBackend ? null : (res['error'] as String? ?? 'Catalog unavailable.');
       for (var p in _allProducts) {
         if (p.variants.isNotEmpty && !_selectedVariants.containsKey(p.id)) {
           _selectedVariants[p.id] = p.variants.first;
@@ -233,23 +239,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: _isLoading
                       ? _buildHomeScreenShimmer()
-                      : GridView.builder(
-                          padding: EdgeInsets.fromLTRB(16, 10, 16, widget.cartItems.isEmpty ? 100 : 160),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.78,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
-                          itemCount: filteredProducts.length,
-                          itemBuilder: (context, index) {
-                            final product = filteredProducts[index];
-                            final selectedVar = _selectedVariants[product.id] ?? product.variants.first;
-                            final qty = _getCartQuantity(product, selectedVar);
+                      : (_loadError != null
+                          ? _buildCatalogErrorState()
+                          : (filteredProducts.isEmpty
+                              ? _buildEmptyCatalogState()
+                              : GridView.builder(
+                                  padding: EdgeInsets.fromLTRB(16, 10, 16, widget.cartItems.isEmpty ? 100 : 160),
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    childAspectRatio: 0.78,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                  ),
+                                  itemCount: filteredProducts.length,
+                                  itemBuilder: (context, index) {
+                                    final product = filteredProducts[index];
+                                    final selectedVar = _selectedVariants[product.id] ?? product.variants.first;
+                                    final qty = _getCartQuantity(product, selectedVar);
 
-                            return _buildLightProductCard(product, selectedVar, qty);
-                          },
-                        ),
+                                    return _buildLightProductCard(product, selectedVar, qty);
+                                  },
+                                ))),
                 ),
               ],
             ),
@@ -748,6 +758,83 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildCatalogErrorState() {
+    // Catalog could not be fetched from the backend (network error, timeout,
+    // or server returned an error). Show a retry CTA instead of silently
+    // falling back to stale hardcoded products.
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.wifi_off_rounded, size: 56, color: Colors.grey.shade400),
+            const SizedBox(height: 14),
+            const Text(
+              "Couldn't load catalog",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _loadError ?? "Please check your connection and try again.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: _loadProducts,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text("Retry", style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF059669),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCatalogState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.storefront_outlined, size: 56, color: Colors.grey.shade400),
+            const SizedBox(height: 14),
+            const Text(
+              "No products available",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "We're restocking our shelves. Please check back shortly.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              onPressed: _loadProducts,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text("Refresh", style: TextStyle(fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF059669),
+                side: const BorderSide(color: Color(0xFF059669)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

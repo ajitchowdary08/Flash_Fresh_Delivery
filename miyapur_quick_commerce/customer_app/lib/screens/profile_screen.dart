@@ -1,9 +1,12 @@
+import 'dart:math' show cos, asin, sqrt;
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../utils/preferences.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/liquid_toast.dart';
 import 'help_support_screen.dart';
@@ -479,10 +482,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     (res["longitude"] ?? pos.longitude)
                                         .toDouble();
                                 detectedDistKm = dist;
-                                detectedServiceable = isSvc;
-                                statusMessage = isSvc
-                                    ? "✅ In 10 KM delivery zone (${dist} KM from hub • ETA ~${eta} mins)"
-                                    : "❌ Delivery Not Available: ${dist} KM from hub (Exceeds 10 KM limit)";
+                                detectedServiceable = true;
+                                // We deliver ANYWHERE — there is no radius cap.
+                                statusMessage =
+                                    "✅ Location detected (${dist.toStringAsFixed(1)} KM from hub • ETA ~${eta} mins)";
                               });
                             } catch (e) {
                               setModalState(() {
@@ -801,16 +804,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               return;
                             }
 
-                            if (detectedServiceable == false) {
-                              LiquidToast.show(
-                                context,
-                                message:
-                                    "Delivery Not Available: Location is ${detectedDistKm ?? 0.0} KM from hub (exceeds 10 KM limit)",
-                                icon: Icons.block_rounded,
-                                accentColor: Colors.redAccent,
-                              );
-                              return;
-                            }
+                            // We deliver ANYWHERE — there is no radius cap, so
+                            // we no longer block saving on distance. The GPS
+                            // serviceability flag is always treated as true.
 
                             double finalLat = detectedLat ?? 17.495101;
                             double finalLng = detectedLng ?? 78.367535;
@@ -826,28 +822,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               longitude: finalLng,
                             );
 
-                            final prefs = await SharedPreferences.getInstance();
-                            await prefs.setString(
-                              "active_loc_id",
-                              "loc_${DateTime.now().millisecondsSinceEpoch}",
-                            );
-                            await prefs.setString(
-                              "active_loc_name",
-                              "$selectedTag: $flatText",
-                            );
-                            await prefs.setString(
-                              "active_loc_address",
-                              landmarkText.isNotEmpty
-                                  ? "$streetText (Near $landmarkText)"
-                                  : streetText,
-                            );
+                            // Persist the FULL active-location record (lat, lng,
+                            // distance, ETA) so the cart screen can show the
+                            // address + ETA and send real coordinates to the
+                            // backend. We always set isServiceable=true since we
+                            // deliver anywhere; distance is recorded for display.
+                            const hubLat = 17.495101;
+                            const hubLng = 78.367535;
+                            const earthRadiusKm = 6371.0;
+                            double dLat = (finalLat - hubLat) * (3.141592653589793 / 180.0);
+                            double dLng = (finalLng - hubLng) * (3.141592653589793 / 180.0);
+                            double a = 0.5 -
+                                0.5 * (cos(dLat) + cos(hubLat * (3.141592653589793 / 180.0)) * cos(finalLat * (3.141592653589793 / 180.0)) * cos(dLng));
+                            double distKm = (earthRadiusKm * 2 * asin(sqrt(a)));
+                            int etaMins = (distKm * 1.5 + 8).clamp(8, 120).round();
+
+                            await Preferences.setString(Preferences.keyActiveLocId, "loc_${DateTime.now().millisecondsSinceEpoch}");
+                            await Preferences.setString(Preferences.keyActiveLocName, "$selectedTag: $flatText");
+                            await Preferences.setString(Preferences.keyActiveLocAddress,
+                                landmarkText.isNotEmpty ? "$streetText (Near $landmarkText)" : streetText);
+                            await Preferences.setDouble(Preferences.keyActiveLocLat, finalLat);
+                            await Preferences.setDouble(Preferences.keyActiveLocLng, finalLng);
+                            await Preferences.setDouble(Preferences.keyActiveLocDist, distKm);
+                            await Preferences.setBoolean(Preferences.keyActiveLocServiceable, true);
+                            await Preferences.setInt(Preferences.keyActiveLocEta, etaMins);
 
                             if (!mounted) return;
                             _fetchProfileAndAddresses();
                             LiquidToast.show(
                               context,
-                              message:
-                                  "📍 Delivery address saved to your account",
+                              message: "📍 Delivery address saved to your account",
                               icon: Icons.home_rounded,
                               accentColor: const Color(0xFF059669),
                             );
@@ -1168,6 +1172,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               latitude: addr.latitude,
                               longitude: addr.longitude,
                             );
+
+                            // Persist the FULL active-location record so the cart
+                            // screen picks up the edited address with real coords.
+                            const hubLat = 17.495101;
+                            const hubLng = 78.367535;
+                            const earthRadiusKm = 6371.0;
+                            double dLat = (addr.latitude - hubLat) * (3.141592653589793 / 180.0);
+                            double dLng = (addr.longitude - hubLng) * (3.141592653589793 / 180.0);
+                            double a = 0.5 -
+                                0.5 * (cos(dLat) + cos(hubLat * (3.141592653589793 / 180.0)) * cos(addr.latitude * (3.141592653589793 / 180.0)) * cos(dLng));
+                            double distKm = (earthRadiusKm * 2 * asin(sqrt(a)));
+                            int etaMins = (distKm * 1.5 + 8).clamp(8, 120).round();
+
+                            await Preferences.setString(Preferences.keyActiveLocId, "loc_${DateTime.now().millisecondsSinceEpoch}");
+                            await Preferences.setString(Preferences.keyActiveLocName, "$selectedTag: $flatText");
+                            await Preferences.setString(Preferences.keyActiveLocAddress,
+                                landmarkText.isNotEmpty ? "$streetText (Near $landmarkText)" : streetText);
+                            await Preferences.setDouble(Preferences.keyActiveLocLat, addr.latitude);
+                            await Preferences.setDouble(Preferences.keyActiveLocLng, addr.longitude);
+                            await Preferences.setDouble(Preferences.keyActiveLocDist, distKm);
+                            await Preferences.setBoolean(Preferences.keyActiveLocServiceable, true);
+                            await Preferences.setInt(Preferences.keyActiveLocEta, etaMins);
 
                             if (!mounted) return;
                             _fetchProfileAndAddresses();
@@ -1683,51 +1709,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderRadius: 20,
                         borderColor: Colors.grey.shade200,
                         margin: const EdgeInsets.only(bottom: 20),
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(20),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                            leading: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF059669).withOpacity(0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.support_agent_rounded,
-                                color: Color(0xFF059669),
-                                size: 24,
-                              ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                          leading: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF059669).withOpacity(0.12),
+                              shape: BoxShape.circle,
                             ),
-                            title: const Text(
-                              "24x7 Help & Support",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                color: Color(0xFF111827),
-                              ),
+                            child: const Icon(
+                              Icons.support_agent_rounded,
+                              color: Color(0xFF059669),
+                              size: 24,
                             ),
-                            subtitle: const Text(
-                              "Raise ticket, FAQs, WhatsApp & Instant Callback",
-                              style: TextStyle(fontSize: 11, color: Colors.black54),
-                            ),
-                            trailing: const Icon(
-                              Icons.chevron_right_rounded,
-                              color: Colors.black45,
-                            ),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => HelpSupportScreen(
-                                    userId: widget.userId,
-                                    phone: widget.phone,
-                                  ),
-                                ),
-                              );
-                            },
                           ),
+                          title: const Text(
+                            "24x7 Help & Support",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFF111827),
+                            ),
+                          ),
+                          subtitle: const Text(
+                            "Raise ticket, FAQs, WhatsApp & Instant Callback",
+                            style: TextStyle(fontSize: 11, color: Colors.black54),
+                          ),
+                          trailing: const Icon(
+                            Icons.chevron_right_rounded,
+                            color: Colors.black45,
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => HelpSupportScreen(
+                                  userId: widget.userId,
+                                  phone: widget.phone,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
 

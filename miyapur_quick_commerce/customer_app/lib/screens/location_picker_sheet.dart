@@ -174,7 +174,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
           _showGeofenceBanner(
             title: "Location permission denied",
             message:
-                "We need location permission to check if you're within our 10 KM delivery radius.",
+                "We need location permission to detect your current address. We deliver anywhere — no radius limit.",
             serviceable: false,
           );
         }
@@ -389,11 +389,10 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                               detectedLat = (res["latitude"] ?? pos.latitude).toDouble();
                               detectedLng = (res["longitude"] ?? pos.longitude).toDouble();
                               detectedDistKm = dist;
-                              detectedServiceable = isSvc;
+                              detectedServiceable = true; // we deliver anywhere
                               detectedEta = eta;
-                              statusMessage = isSvc
-                                  ? "✅ In 10 KM delivery zone (${dist} KM from hub • ETA ~${eta} mins)"
-                                  : "❌ Delivery Not Available: ${dist} KM from hub (Exceeds 10 KM limit)";
+                              statusMessage =
+                                  "✅ Location detected (${dist.toStringAsFixed(1)} KM from hub • ETA ~${eta} mins)";
                             });
                           } catch (e) {
                             setModalState(() {
@@ -523,17 +522,8 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                   return;
                 }
 
-                if (detectedServiceable == false) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        "Delivery not available: Location is ${detectedDistKm ?? 0.0} KM from hub, which exceeds the 10 KM limit.",
-                      ),
-                      backgroundColor: Colors.red.shade700,
-                    ),
-                  );
-                  return;
-                }
+                // We deliver ANYWHERE — no radius cap, so we never block on
+                // distance. detectedServiceable is always true.
 
                 double finalLat = detectedLat ?? _kHubLatitude;
                 double finalLng = detectedLng ?? _kHubLongitude;

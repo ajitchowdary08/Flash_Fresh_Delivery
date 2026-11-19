@@ -7,11 +7,10 @@ from app.schemas.schemas import PromoCodeValidateRequest
 
 router = APIRouter(prefix="/catalog", tags=["Catalog & Sunday Meat Engine"])
 
-PROMO_CODES = {
-    "ZEPTO50": {"discount_percent": 20, "max_discount": 50, "min_order": 149, "description": "Flat 20% OFF up to ₹50 on orders above ₹149"},
-    "FLASH100": {"discount_percent": 25, "max_discount": 100, "min_order": 299, "description": "Flat 25% OFF up to ₹100 on Flash Mega Orders above ₹299"},
-    "SUNDAYMEAT": {"discount_percent": 15, "max_discount": 75, "min_order": 199, "description": "Special 15% OFF on Sunday Fresh Meat & Seafood"},
-}
+# Promo codes have been RETIRED. The /promos/* endpoints below are kept only
+# for backward compatibility with older app builds and now always return
+# "no promos" / "invalid". The PromoCode model + DB table are left intact so
+# historical order rows still deserialize, but no discount is ever applied.
 
 @router.get("/categories")
 def get_categories(db: Session = Depends(get_db)):
@@ -122,43 +121,19 @@ def search_products(query: str = "", db: Session = Depends(get_db)):
 @router.post("/promos/validate")
 def validate_promo_code(req: PromoCodeValidateRequest, db: Session = Depends(get_db)):
     """
-    Validates promo coupon code and calculates exact discount amount directly from DB.
+    Promo codes have been retired. This endpoint is kept for backward
+    compatibility with older app builds that still POST to it, but it always
+    returns 'invalid' so the checkout no longer applies any discount.
     """
-    code = req.code.strip().upper()
-    promo = db.query(PromoCode).filter(PromoCode.code == code, PromoCode.is_active == True).first()
-    if not promo:
-        raise HTTPException(status_code=400, detail="Invalid promo code. Please enter a valid coupon (e.g. ZEPTO50, FLASH100).")
-
-    if req.items_total < promo.min_order:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Coupon '{code}' requires a minimum item total of ₹{promo.min_order:.0f}. Add ₹{(promo.min_order - req.items_total):.0f} more to apply."
-        )
-
-    calc_disc = (req.items_total * promo.discount_percent) / 100.0
-    discount_amount = min(calc_disc, promo.max_discount)
-
-    return {
-        "success": True,
-        "code": code,
-        "discount_amount": discount_amount,
-        "description": promo.description,
-        "message": f"Coupon '{code}' applied! Saved ₹{discount_amount:.0f} on your order."
-    }
+    raise HTTPException(
+        status_code=400,
+        detail="Promo codes are no longer available. Proceed to pay the listed price."
+    )
 
 @router.get("/promos/active")
 def get_active_promos(db: Session = Depends(get_db)):
     """
-    Returns list of active coupons from the SQL database for customer checkout banner.
+    Promo codes have been retired. Returns an empty list so the checkout banner
+    renders nothing. Kept for backward compatibility with older app builds.
     """
-    promos = db.query(PromoCode).filter(PromoCode.is_active == True).all()
-    return [
-        {
-            "code": p.code,
-            "discount_percent": p.discount_percent,
-            "max_discount": p.max_discount,
-            "min_order": p.min_order,
-            "description": p.description
-        }
-        for p in promos
-    ]
+    return []

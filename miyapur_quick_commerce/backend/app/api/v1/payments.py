@@ -5,9 +5,10 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.database.db import get_db
-from app.models.models import Order, ProductVariant
+from app.models.models import Order, ProductVariant, Payment
 from app.services.payment_service import payment_service
 from app.core.config import settings
+from app.core.security import get_current_user
 
 router = APIRouter(prefix="/payments", tags=["Cashfree PG & UPI Payments"])
 
@@ -20,7 +21,7 @@ class CashfreeVerifyPayload(BaseModel):
     order_id: str
 
 @router.post("/verify")
-def verify_payment(req: VerifyPaymentPayload, db: Session = Depends(get_db)):
+def verify_payment(req: VerifyPaymentPayload, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     """
     Confirms order payment status and advances order to PACKING / DISPATCH.
     """
@@ -28,11 +29,27 @@ def verify_payment(req: VerifyPaymentPayload, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # Only the order owner (or a guest in dev) may verify their own payment.
+    if user.get("role") == "CUSTOMER" and order.user_id and user.get("sub") != "usr_guest_local" \
+            and order.user_id != user.get("sub"):
+        raise HTTPException(status_code=403, detail="You can only verify payments for your own orders.")
+
     order.payment_status = "PAID" if req.payment_method.upper() not in ["COD", "CASH_ON_DELIVERY"] else "PENDING_COD"
     order.payment_method = req.payment_method
     order.status = "PACKED"
     db.commit()
     db.refresh(order)
+
+    # Record the payment ledger entry.
+    try:
+        db.add(Payment(
+            order_id=order.id, gateway=req.payment_method.upper(),
+            gateway_order_id=order.order_number, amount=order.grand_total,
+            status=order.payment_status,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
 
     return {
         "success": True,
@@ -230,6 +247,7 @@ def cashfree_payment_return(order_id: str, db: Session = Depends(get_db)):
 def verify_cashfree_payment(
     req: CashfreeVerifyPayload,
     db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """
     Server-authoritative Cashfree payment verification. The client NEVER decides success:
@@ -265,6 +283,18 @@ def verify_cashfree_payment(
         order.status = "PACKED"
         db.commit()
         db.refresh(order)
+        # Record a PAID payment ledger row.
+        try:
+            db.add(Payment(
+                order_id=order.id, gateway="CASHFREE",
+                gateway_order_id=order.order_number,
+                gateway_payment_id=result.get("cf_payment_id"),
+                amount=order.grand_total, status="PAID",
+                raw_response=str(result),
+            ))
+            db.commit()
+        except Exception:
+            db.rollback()
         return {
             "success": True,
             "is_paid": True,

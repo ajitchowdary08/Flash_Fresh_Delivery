@@ -75,10 +75,13 @@ def get_current_user(
 
 def get_current_rider(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Validates the JWT Bearer token for delivery rider endpoints.
     Requires role RIDER or ADMIN; a guest token is rejected in production.
+    Resolves the underlying Rider row from the DB so callers have the
+    authoritative rider_id / vehicle / online status.
     """
     if not credentials:
         if settings.ENVIRONMENT == "production":
@@ -87,7 +90,12 @@ def get_current_rider(
                 detail="Rider authorization required.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return {"sub": "rdr_ravi_01", "phone": "9848012345", "role": "RIDER"}
+        # Dev fallback: the first seeded rider, so the app works end-to-end locally.
+        from app.models.models import Rider
+        r = db.query(Rider).first()
+        if r:
+            return {"sub": r.user_id or r.id, "phone": r.phone, "role": "RIDER", "rider": r}
+        return {"sub": "rdr_9848012345", "phone": "9848012345", "role": "RIDER"}
 
     payload = _decode_token(credentials.credentials)
     if not payload or payload.get("role") not in ["RIDER", "ADMIN"]:
@@ -95,15 +103,24 @@ def get_current_rider(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden: Rider authentication required.",
         )
+    # Resolve the Rider row by phone (riders are seeded/created keyed by phone).
+    phone = (payload.get("phone") or "").strip()
+    if phone:
+        from app.models.models import Rider
+        rider = db.query(Rider).filter(Rider.phone == phone).first()
+        if rider:
+            return {**payload, "rider": rider}
     return payload
 
 
 def get_current_store_manager(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Validates the JWT Bearer token for Dark Store Hub Manager & Admin operations.
-    Requires role STORE_MANAGER or ADMIN; a guest token is rejected in production.
+    Requires role MANAGER (or legacy STORE_MANAGER) or ADMIN; a guest token is
+    rejected in production. Also confirms the underlying user is still active.
     """
     if not credentials:
         if settings.ENVIRONMENT == "production":
@@ -112,15 +129,22 @@ def get_current_store_manager(
                 detail="Dark store manager authorization required.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return {"sub": "mgr_central_01", "phone": "9000011111", "role": "STORE_MANAGER"}
+        return {"sub": "mgr_default_01", "phone": "9000011111", "role": "MANAGER"}
 
     payload = _decode_token(credentials.credentials)
-    if not payload or payload.get("role") not in ["STORE_MANAGER", "ADMIN"]:
+    if not payload or payload.get("role") not in ["MANAGER", "STORE_MANAGER", "ADMIN"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden: Dark Store Hub Manager authority required.",
         )
-    return payload
+    # Confirm the user is still an active manager in the DB (revocation check).
+    manager = db.query(User).filter(User.id == payload.get("sub")).first()
+    if not manager or not manager.is_active or manager.role not in ["MANAGER", "STORE_MANAGER", "ADMIN"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Manager account is inactive or revoked.",
+        )
+    return {**payload, "user": manager}
 
 
 otp_service.verify_jwt_token = _decode_token
