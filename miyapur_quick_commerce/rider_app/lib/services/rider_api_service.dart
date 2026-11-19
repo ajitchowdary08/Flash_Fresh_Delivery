@@ -1,6 +1,7 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/rider_order.dart';
 import '../utils/rider_preferences.dart';
 
@@ -26,27 +27,37 @@ class RiderApiService {
   // but the backend resolves their role=RIDER from the users table).
   static Future<Map<String, dynamic>> sendOtp(String phone) async {
     try {
-      final res = await http.post(
-        Uri.parse("$baseUrl/auth/send-otp"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"phone": phone}),
-      ).timeout(const Duration(seconds: 12));
+      final res = await http
+          .post(
+            Uri.parse("$baseUrl/auth/send-otp"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"phone": phone}),
+          )
+          .timeout(const Duration(seconds: 12));
       if (res.statusCode == 200) return jsonDecode(res.body);
       final err = jsonDecode(res.body);
       return {"success": false, "message": err["detail"] ?? "OTP send failed."};
     } catch (_) {
-      return {"success": false, "message": "Couldn't reach the server. Please retry."};
+      return {
+        "success": false,
+        "message": "Couldn't reach the server. Please retry.",
+      };
     }
   }
 
   // 0b. Verify OTP and persist the JWT token + rider identity.
-  static Future<Map<String, dynamic>> verifyOtp(String phone, String otp) async {
+  static Future<Map<String, dynamic>> verifyOtp(
+    String phone,
+    String otp,
+  ) async {
     try {
-      final res = await http.post(
-        Uri.parse("$baseUrl/auth/verify-otp"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"phone": phone, "otp": otp}),
-      ).timeout(const Duration(seconds: 12));
+      final res = await http
+          .post(
+            Uri.parse("$baseUrl/auth/verify-otp"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"phone": phone, "otp": otp}),
+          )
+          .timeout(const Duration(seconds: 12));
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body["success"] == true) {
@@ -58,9 +69,15 @@ class RiderApiService {
         return body;
       }
       final err = jsonDecode(res.body);
-      return {"success": false, "message": err["detail"] ?? "Verification failed."};
+      return {
+        "success": false,
+        "message": err["detail"] ?? "Verification failed.",
+      };
     } catch (_) {
-      return {"success": false, "message": "Couldn't reach the server. Please retry."};
+      return {
+        "success": false,
+        "message": "Couldn't reach the server. Please retry.",
+      };
     }
   }
 
@@ -69,42 +86,59 @@ class RiderApiService {
     // No fake "Ravi Kumar" fallback — a network error surfaces as an error so
     // the rider sees a retry prompt instead of an invented identity.
     try {
-      final res = await http.get(
-        Uri.parse("$baseUrl/rider/profile"),
-        headers: _authHeaders(),
-      ).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(Uri.parse("$baseUrl/rider/profile"), headers: _authHeaders())
+          .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) return jsonDecode(res.body);
-      return {"success": false, "error": "Couldn't load profile (HTTP ${res.statusCode})."};
+      return {
+        "success": false,
+        "error": "Couldn't load profile (HTTP ${res.statusCode}).",
+      };
     } catch (_) {
-      return {"success": false, "error": "Couldn't reach the server. Please retry."};
+      return {
+        "success": false,
+        "error": "Couldn't reach the server. Please retry.",
+      };
     }
   }
 
   // 2. Toggle Online/Offline Duty State
   static Future<Map<String, dynamic>> toggleDuty(bool isOnline) async {
     try {
-      final res = await http.post(
-        Uri.parse("$baseUrl/rider/duty"),
-        headers: _authHeaders(),
-        body: jsonEncode({"is_online": isOnline}),
-      ).timeout(const Duration(seconds: 8));
+      final res = await http
+          .post(
+            Uri.parse("$baseUrl/rider/duty"),
+            headers: _authHeaders(),
+            body: jsonEncode({"is_online": isOnline}),
+          )
+          .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) return jsonDecode(res.body);
-      return {"success": false, "is_online": !isOnline, "message": "Duty toggle failed."};
+      return {
+        "success": false,
+        "is_online": !isOnline,
+        "message": "Duty toggle failed.",
+      };
     } catch (_) {
       // CRITICAL FIX: previously returned the input `isOnline` on failure, so the
       // UI flipped to ONLINE while the server stayed OFFLINE — rider never got
       // orders. Now we report failure so the UI stays accurate.
-      return {"success": false, "is_online": !isOnline, "message": "Couldn't reach the server."};
+      return {
+        "success": false,
+        "is_online": !isOnline,
+        "message": "Couldn't reach the server.",
+      };
     }
   }
 
   // 3. Get Real-Time Available Orders from Database
   static Future<List<RiderOrderModel>> getAvailableOrders() async {
     try {
-      final res = await http.get(
-        Uri.parse("$baseUrl/rider/orders/available"),
-        headers: _authHeaders(),
-      ).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(
+            Uri.parse("$baseUrl/rider/orders/available"),
+            headers: _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data is List) {
@@ -118,10 +152,12 @@ class RiderApiService {
   // 4. Accept Order Atomically
   static Future<Map<String, dynamic>> acceptOrder(String orderId) async {
     try {
-      final res = await http.post(
-        Uri.parse("$baseUrl/rider/orders/$orderId/accept"),
-        headers: _authHeaders(),
-      ).timeout(const Duration(seconds: 8));
+      final res = await http
+          .post(
+            Uri.parse("$baseUrl/rider/orders/$orderId/accept"),
+            headers: _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) return jsonDecode(res.body);
       final err = jsonDecode(res.body);
       return {"success": false, "message": err["detail"] ?? "Accept failed."};
@@ -131,13 +167,18 @@ class RiderApiService {
   }
 
   // 4b. Reject an order with a reason (NEW — production riders need this).
-  static Future<Map<String, dynamic>> rejectOrder(String orderId, String reason) async {
+  static Future<Map<String, dynamic>> rejectOrder(
+    String orderId,
+    String reason,
+  ) async {
     try {
-      final res = await http.post(
-        Uri.parse("$baseUrl/rider/orders/$orderId/reject"),
-        headers: _authHeaders(),
-        body: jsonEncode({"reason": reason}),
-      ).timeout(const Duration(seconds: 8));
+      final res = await http
+          .post(
+            Uri.parse("$baseUrl/rider/orders/$orderId/reject"),
+            headers: _authHeaders(),
+            body: jsonEncode({"reason": reason}),
+          )
+          .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) return jsonDecode(res.body);
       final err = jsonDecode(res.body);
       return {"success": false, "message": err["detail"] ?? "Reject failed."};
@@ -149,10 +190,12 @@ class RiderApiService {
   // 5. Pickup Order from Hub & Mark OUT_FOR_DELIVERY
   static Future<Map<String, dynamic>> pickupOrder(String orderId) async {
     try {
-      final res = await http.post(
-        Uri.parse("$baseUrl/rider/orders/$orderId/pickup"),
-        headers: _authHeaders(),
-      ).timeout(const Duration(seconds: 8));
+      final res = await http
+          .post(
+            Uri.parse("$baseUrl/rider/orders/$orderId/pickup"),
+            headers: _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) return jsonDecode(res.body);
       final err = jsonDecode(res.body);
       return {"success": false, "message": err["detail"] ?? "Pickup failed."};
@@ -162,13 +205,23 @@ class RiderApiService {
   }
 
   // 6. Broadcast Real Live GPS Coordinates to Customer Map
-  static Future<bool> updateLocation(String orderId, double lat, double lng) async {
+  static Future<bool> updateLocation(
+    String orderId,
+    double lat,
+    double lng,
+  ) async {
     try {
-      final res = await http.post(
-        Uri.parse("$baseUrl/rider/location/update"),
-        headers: _authHeaders(),
-        body: jsonEncode({"order_id": orderId, "latitude": lat, "longitude": lng}),
-      ).timeout(const Duration(seconds: 6));
+      final res = await http
+          .post(
+            Uri.parse("$baseUrl/rider/location/update"),
+            headers: _authHeaders(),
+            body: jsonEncode({
+              "order_id": orderId,
+              "latitude": lat,
+              "longitude": lng,
+            }),
+          )
+          .timeout(const Duration(seconds: 6));
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -176,18 +229,29 @@ class RiderApiService {
   }
 
   // 7. Verify Customer Delivery PIN against Live Database (Server Authoritative)
-  static Future<Map<String, dynamic>> verifyDeliveryOtp(String orderId, String otp) async {
+  static Future<Map<String, dynamic>> verifyDeliveryOtp(
+    String orderId,
+    String otp,
+  ) async {
     try {
-      final res = await http.post(
-        Uri.parse("$baseUrl/rider/orders/verify-delivery"),
-        headers: _authHeaders(),
-        body: jsonEncode({"order_id": orderId, "otp": otp}),
-      ).timeout(const Duration(seconds: 8));
+      final res = await http
+          .post(
+            Uri.parse("$baseUrl/rider/orders/verify-delivery"),
+            headers: _authHeaders(),
+            body: jsonEncode({"order_id": orderId, "otp": otp}),
+          )
+          .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) return jsonDecode(res.body);
       final err = jsonDecode(res.body);
-      return {"success": false, "message": err["detail"] ?? "OTP verification failed."};
+      return {
+        "success": false,
+        "message": err["detail"] ?? "OTP verification failed.",
+      };
     } catch (_) {
-      return {"success": false, "message": "Couldn't reach the verification server."};
+      return {
+        "success": false,
+        "message": "Couldn't reach the verification server.",
+      };
     }
   }
 
@@ -200,9 +264,11 @@ class RiderApiService {
   }) async {
     try {
       final res = await http
-          .get(Uri.parse(
-            "$baseUrl/maps/route?origin_lat=$originLat&origin_lng=$originLng&dest_lat=$destLat&dest_lng=$destLng",
-          ))
+          .get(
+            Uri.parse(
+              "$baseUrl/maps/route?origin_lat=$originLat&origin_lng=$originLng&dest_lat=$destLat&dest_lng=$destLng",
+            ),
+          )
           .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -235,14 +301,19 @@ class RiderApiService {
     // No fabricated earnings/milestones fallback — a network error surfaces as
     // an error so the rider is never shown fake financial data.
     try {
-      final res = await http.get(
-        Uri.parse("$baseUrl/rider/earnings"),
-        headers: _authHeaders(),
-      ).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(Uri.parse("$baseUrl/rider/earnings"), headers: _authHeaders())
+          .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) return jsonDecode(res.body);
-      return {"success": false, "error": "Couldn't load earnings (HTTP ${res.statusCode})."};
+      return {
+        "success": false,
+        "error": "Couldn't load earnings (HTTP ${res.statusCode}).",
+      };
     } catch (_) {
-      return {"success": false, "error": "Couldn't reach the server. Please retry."};
+      return {
+        "success": false,
+        "error": "Couldn't reach the server. Please retry.",
+      };
     }
   }
 
@@ -250,10 +321,9 @@ class RiderApiService {
   static Future<Map<String, dynamic>> getRiderReviews() async {
     // No fake 5.0 rating fallback.
     try {
-      final res = await http.get(
-        Uri.parse("$baseUrl/rider/reviews"),
-        headers: _authHeaders(),
-      ).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(Uri.parse("$baseUrl/rider/reviews"), headers: _authHeaders())
+          .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) return jsonDecode(res.body);
       return {"success": false, "error": "Couldn't load reviews."};
     } catch (_) {
