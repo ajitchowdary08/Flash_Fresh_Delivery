@@ -1,7 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../models/rider_order.dart';
 import '../services/rider_api_service.dart';
 import '../services/rider_location_service.dart';
@@ -111,7 +113,9 @@ class _TripScreenState extends State<TripScreen> {
   }
 
   Future<void> _openGoogleMaps(double lat, double lng) async {
-    final uri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng");
+    final uri = Uri.parse(
+      "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng",
+    );
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {
@@ -127,7 +131,9 @@ class _TripScreenState extends State<TripScreen> {
     if (clean.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Customer phone number not available for this order.")),
+        const SnackBar(
+          content: Text("Customer phone number not available for this order."),
+        ),
       );
       return;
     }
@@ -136,9 +142,8 @@ class _TripScreenState extends State<TripScreen> {
       await launchUrl(uri);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Calling customer: $phone")),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Calling customer: $phone")));
     }
   }
 
@@ -166,11 +171,16 @@ class _TripScreenState extends State<TripScreen> {
           ),
           backgroundColor: const Color(0xFF00C853),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     } else {
-      final msg = res['message'] ?? res['detail'] ?? "Could not confirm pickup from hub. Please retry.";
+      final msg =
+          res['message'] ??
+          res['detail'] ??
+          "Could not confirm pickup from hub. Please retry.";
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
@@ -184,7 +194,10 @@ class _TripScreenState extends State<TripScreen> {
   void _handleVerifyOtpAndComplete(String otp) async {
     HapticFeedback.heavyImpact();
     setState(() => _isLoading = true);
-    final res = await RiderApiService.verifyDeliveryOtp(widget.order.orderId, otp);
+    final res = await RiderApiService.verifyDeliveryOtp(
+      widget.order.orderId,
+      otp,
+    );
     if (!mounted) return;
     setState(() => _isLoading = false);
 
@@ -194,7 +207,10 @@ class _TripScreenState extends State<TripScreen> {
       setState(() => _stage = 4);
       _showSuccessCelebrationDialog();
     } else {
-      final msg = res['message'] ?? res['detail'] ?? "Incorrect PIN! Please check customer's order screen.";
+      final msg =
+          res['message'] ??
+          res['detail'] ??
+          "Incorrect PIN! Please check customer's order screen.";
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
@@ -221,7 +237,11 @@ class _TripScreenState extends State<TripScreen> {
                 color: const Color(0xFF00C853).withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle_rounded, color: Color(0xFF00C853), size: 54),
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xFF00C853),
+                size: 54,
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -278,7 +298,9 @@ class _TripScreenState extends State<TripScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFC8019),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 elevation: 0,
               ),
               onPressed: () {
@@ -311,10 +333,10 @@ class _TripScreenState extends State<TripScreen> {
               _stage == 0
                   ? "Step 1: Head to Dark Store"
                   : _stage == 1
-                      ? "Step 2: Bag & Produce Check"
-                      : _stage == 2
-                          ? "Step 3: Delivering to Customer"
-                          : "Step 4: Doorstep Handover",
+                  ? "Step 2: Bag & Produce Check"
+                  : _stage == 2
+                  ? "Step 3: Delivering to Customer"
+                  : "Step 4: Doorstep Handover",
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             Text(
@@ -395,8 +417,8 @@ class _TripScreenState extends State<TripScreen> {
                     color: isCompleted
                         ? const Color(0xFF00C853)
                         : isCurrent
-                            ? const Color(0xFFFC8019)
-                            : const Color(0xFF282B3B),
+                        ? const Color(0xFFFC8019)
+                        : const Color(0xFF282B3B),
                   ),
                   child: Center(
                     child: isCompleted
@@ -473,7 +495,9 @@ class _TripScreenState extends State<TripScreen> {
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.6,
-                    color: isCod ? const Color(0xFFFFB300) : const Color(0xFF00C853),
+                    color: isCod
+                        ? const Color(0xFFFFB300)
+                        : const Color(0xFF00C853),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -510,7 +534,11 @@ class _TripScreenState extends State<TripScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.storefront_rounded, color: Color(0xFFFFB300), size: 18),
+              const Icon(
+                Icons.storefront_rounded,
+                color: Color(0xFFFFB300),
+                size: 18,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -518,11 +546,19 @@ class _TripScreenState extends State<TripScreen> {
                   children: [
                     const Text(
                       "PICKUP: DARK STORE HUB",
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFFFB300)),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFFFB300),
+                      ),
                     ),
                     Text(
                       widget.order.pickupHub,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -540,7 +576,11 @@ class _TripScreenState extends State<TripScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.location_on_rounded, color: Color(0xFF00C853), size: 18),
+              const Icon(
+                Icons.location_on_rounded,
+                color: Color(0xFF00C853),
+                size: 18,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -548,11 +588,19 @@ class _TripScreenState extends State<TripScreen> {
                   children: [
                     const Text(
                       "DROP: CUSTOMER DOORSTEP",
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF00C853)),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF00C853),
+                      ),
                     ),
                     Text(
                       widget.order.deliveryAddress,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -565,7 +613,11 @@ class _TripScreenState extends State<TripScreen> {
                 ),
                 child: Text(
                   "${widget.order.distanceKm} km",
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white70),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white70,
+                  ),
                 ),
               ),
             ],
@@ -579,10 +631,17 @@ class _TripScreenState extends State<TripScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Customer Contact", style: TextStyle(fontSize: 10, color: Colors.white60)),
+                  const Text(
+                    "Customer Contact",
+                    style: TextStyle(fontSize: 10, color: Colors.white60),
+                  ),
                   Text(
                     widget.order.customerPhone,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -590,12 +649,28 @@ class _TripScreenState extends State<TripScreen> {
                 children: [
                   OutlinedButton.icon(
                     onPressed: () => _callCustomer(widget.order.customerPhone),
-                    icon: const Icon(Icons.phone_rounded, size: 14, color: Color(0xFF00C853)),
-                    label: const Text("Call", style: TextStyle(color: Color(0xFF00C853), fontSize: 12, fontWeight: FontWeight.bold)),
+                    icon: const Icon(
+                      Icons.phone_rounded,
+                      size: 14,
+                      color: Color(0xFF00C853),
+                    ),
+                    label: const Text(
+                      "Call",
+                      style: TextStyle(
+                        color: Color(0xFF00C853),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Color(0xFF00C853)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -605,12 +680,23 @@ class _TripScreenState extends State<TripScreen> {
                       widget.order.longitude ?? 78.3720,
                     ),
                     icon: const Icon(Icons.navigation_rounded, size: 14),
-                    label: const Text("Navigate", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      "Navigate",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFC8019),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       elevation: 0,
                     ),
                   ),
@@ -635,11 +721,19 @@ class _TripScreenState extends State<TripScreen> {
       ),
       child: Column(
         children: [
-          const Icon(Icons.store_mall_directory_rounded, size: 48, color: Color(0xFFFFB300)),
+          const Icon(
+            Icons.store_mall_directory_rounded,
+            size: 48,
+            color: Color(0xFFFFB300),
+          ),
           const SizedBox(height: 12),
           const Text(
-            "Navigate to Miyapur Dark Store Hub",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+            "Navigate to Ganapathi Hub",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 4),
           const Text(
@@ -658,7 +752,9 @@ class _TripScreenState extends State<TripScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFC8019),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 elevation: 0,
               ),
               child: const Row(
@@ -666,7 +762,10 @@ class _TripScreenState extends State<TripScreen> {
                 children: [
                   Icon(Icons.where_to_vote_rounded, size: 18),
                   SizedBox(width: 8),
-                  Text("I HAVE REACHED DARK STORE", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(
+                    "I HAVE REACHED DARK STORE",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                 ],
               ),
             ),
@@ -693,7 +792,11 @@ class _TripScreenState extends State<TripScreen> {
             children: [
               const Text(
                 "Verify Order Items & Bag Seal",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: Colors.white,
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -703,7 +806,11 @@ class _TripScreenState extends State<TripScreen> {
                 ),
                 child: Text(
                   "${widget.order.items.length} Items",
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white70,
+                  ),
                 ),
               ),
             ],
@@ -726,7 +833,11 @@ class _TripScreenState extends State<TripScreen> {
                 },
                 title: Text(
                   item.name,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
                 subtitle: Text(
                   "${item.variant} • Qty: ${item.quantity}",
@@ -747,7 +858,11 @@ class _TripScreenState extends State<TripScreen> {
             onChanged: (val) => setState(() => _sealVerified = val ?? false),
             title: const Text(
               "Tamper-proof bag seal is intact & verified",
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFFFB380)),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFFFB380),
+              ),
             ),
           ),
 
@@ -761,7 +876,9 @@ class _TripScreenState extends State<TripScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00C853),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 elevation: 0,
               ),
               child: _isLoading
@@ -773,7 +890,10 @@ class _TripScreenState extends State<TripScreen> {
                         SizedBox(width: 8),
                         Text(
                           "CONFIRM BAG PICKED UP & START RIDE",
-                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -801,18 +921,28 @@ class _TripScreenState extends State<TripScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.two_wheeler_rounded, color: Color(0xFFFC8019), size: 20),
+                  Icon(
+                    Icons.two_wheeler_rounded,
+                    color: Color(0xFFFC8019),
+                    size: 20,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     "En Route to Customer",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _isGpsStreaming ? const Color(0xFF00C853).withValues(alpha: 0.15) : const Color(0xFF262838),
+                  color: _isGpsStreaming
+                      ? const Color(0xFF00C853).withValues(alpha: 0.15)
+                      : const Color(0xFF262838),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -820,7 +950,9 @@ class _TripScreenState extends State<TripScreen> {
                   children: [
                     CircleAvatar(
                       radius: 3,
-                      backgroundColor: _isGpsStreaming ? const Color(0xFF00C853) : Colors.grey,
+                      backgroundColor: _isGpsStreaming
+                          ? const Color(0xFF00C853)
+                          : Colors.grey,
                     ),
                     const SizedBox(width: 5),
                     Text(
@@ -828,7 +960,9 @@ class _TripScreenState extends State<TripScreen> {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: _isGpsStreaming ? const Color(0xFF00C853) : Colors.white60,
+                        color: _isGpsStreaming
+                            ? const Color(0xFF00C853)
+                            : Colors.white60,
                       ),
                     ),
                   ],
@@ -866,12 +1000,17 @@ class _TripScreenState extends State<TripScreen> {
                 _showArrivalToast();
               },
               icon: const Icon(Icons.location_on_rounded, size: 18),
-              label: const Text("Arrived at Customer Location", style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text(
+                "Arrived at Customer Location",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFC8019),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
@@ -889,7 +1028,9 @@ class _TripScreenState extends State<TripScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF191B26),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF00C853).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: const Color(0xFF00C853).withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -902,7 +1043,11 @@ class _TripScreenState extends State<TripScreen> {
                   color: const Color(0xFF00C853).withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.shield_outlined, color: Color(0xFF00C853), size: 20),
+                child: const Icon(
+                  Icons.shield_outlined,
+                  color: Color(0xFF00C853),
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -911,7 +1056,11 @@ class _TripScreenState extends State<TripScreen> {
                   children: [
                     Text(
                       "Doorstep Delivery Verification",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
                     ),
                     Text(
                       "Ask customer for the 4-digit Delivery PIN",
@@ -930,7 +1079,9 @@ class _TripScreenState extends State<TripScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFFFB300).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: const Color(0xFFFFB300).withValues(alpha: 0.3),
+                ),
               ),
               child: CheckboxListTile(
                 value: _cashCollected,
@@ -938,10 +1089,15 @@ class _TripScreenState extends State<TripScreen> {
                 checkColor: Colors.black,
                 contentPadding: EdgeInsets.zero,
                 dense: true,
-                onChanged: (val) => setState(() => _cashCollected = val ?? false),
+                onChanged: (val) =>
+                    setState(() => _cashCollected = val ?? false),
                 title: Text(
                   "Collected ₹${widget.order.grandTotal.toStringAsFixed(0)} CASH from customer",
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFFFFB300)),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFFFFB300),
+                  ),
                 ),
               ),
             ),
@@ -963,7 +1119,10 @@ class _TripScreenState extends State<TripScreen> {
             textAlign: TextAlign.center,
             decoration: InputDecoration(
               hintText: "••••",
-              hintStyle: const TextStyle(letterSpacing: 16, color: Colors.white24),
+              hintStyle: const TextStyle(
+                letterSpacing: 16,
+                color: Colors.white24,
+              ),
               counterText: "",
               filled: true,
               fillColor: const Color(0xFF222536),
@@ -973,7 +1132,10 @@ class _TripScreenState extends State<TripScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFF00C853), width: 1.5),
+                borderSide: const BorderSide(
+                  color: Color(0xFF00C853),
+                  width: 1.5,
+                ),
               ),
             ),
           ),
@@ -990,13 +1152,21 @@ class _TripScreenState extends State<TripScreen> {
                       final otp = _otpCtrl.text.trim();
                       if (otp.length != 4) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Please enter the complete 4-digit PIN.")),
+                          const SnackBar(
+                            content: Text(
+                              "Please enter the complete 4-digit PIN.",
+                            ),
+                          ),
                         );
                         return;
                       }
                       if (isCod && !_cashCollected) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Please confirm cash collection first.")),
+                          const SnackBar(
+                            content: Text(
+                              "Please confirm cash collection first.",
+                            ),
+                          ),
                         );
                         return;
                       }
@@ -1005,14 +1175,19 @@ class _TripScreenState extends State<TripScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00C853),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 elevation: 0,
               ),
               child: _isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text(
                       "VERIFY PIN & COMPLETE DELIVERY",
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
                     ),
             ),
           ),
