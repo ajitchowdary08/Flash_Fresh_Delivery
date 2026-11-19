@@ -212,10 +212,25 @@ def settle_pay_later_bill(
 
 @router.put("/profile/{user_id}")
 @router.post("/profile/{user_id}")
-def update_user_profile(user_id: str, req: UpdateProfileRequest, db: Session = Depends(get_db)):
+def update_user_profile(
+    user_id: str,
+    req: UpdateProfileRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     """
     Updates or creates customer profile name and email address in the SQL Database.
+    Enforces that caller is authorized to modify this user account.
     """
+    caller_role = current_user.get("role", "CUSTOMER")
+    caller_id = current_user.get("sub", "")
+    caller_phone = current_user.get("phone", "")
+    if caller_role not in ["MANAGER", "ADMIN"] and caller_id != user_id and f"usr_{caller_phone}" != user_id and caller_phone != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Unauthorized: You can only update your own profile.",
+        )
+
     user = db.query(User).filter((User.id == user_id) | (User.phone == user_id)).first()
     if not user:
         user = User(

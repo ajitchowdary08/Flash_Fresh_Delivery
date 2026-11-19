@@ -8,7 +8,7 @@ import '../widgets/glass_card.dart';
 import '../widgets/liquid_toast.dart';
 
 class AuthScreen extends StatefulWidget {
-  final Function(String phone, String name, String userId) onLoginSuccess;
+  final Function(String phone, String name, String userId, String token) onLoginSuccess;
   final VoidCallback? onCancel;
 
   const AuthScreen({
@@ -185,6 +185,7 @@ class _AuthScreenState extends State<AuthScreen> {
             rawPhone,
             backendUser['name'] ?? "Customer",
             backendUser['user_id'] ?? "usr_firebase_auto",
+            backendUser['token'] ?? "",
           );
         },
       );
@@ -246,6 +247,7 @@ class _AuthScreenState extends State<AuthScreen> {
             _phoneController.text.trim(),
             backendUser['name'] ?? "Customer",
             backendUser['user_id'] ?? userCred.user!.uid,
+            backendUser['token'] ?? "",
           );
           return;
         }
@@ -274,8 +276,9 @@ class _AuthScreenState extends State<AuthScreen> {
       final userName = res['name'] ?? "Customer";
       final userPhone = res['phone'] ?? _phoneController.text.trim();
       final userId = res['user_id'] ?? "usr_verified";
+      final token = res['token'] ?? res['jwt_token'] ?? "";
 
-      _showSuccessVerificationAnimation(userName, userPhone, userId);
+      _showSuccessVerificationAnimation(userName, userPhone, userId, token);
     } else {
       LiquidToast.show(
         context,
@@ -286,7 +289,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  void _showSuccessVerificationAnimation(String userName, String phone, String userId) async {
+  void _showSuccessVerificationAnimation(String userName, String phone, String userId, [String token = ""]) async {
     if (!mounted) return;
     showDialog(
       context: context,
@@ -356,7 +359,7 @@ class _AuthScreenState extends State<AuthScreen> {
     await Future.delayed(const Duration(milliseconds: 50));
     if (!mounted) return;
 
-    widget.onLoginSuccess(phone, userName, userId);
+    widget.onLoginSuccess(phone, userName, userId, token);
   }
 
   Widget _buildAnimatedOtpBox(int index) {

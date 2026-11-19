@@ -126,9 +126,9 @@ class OTPService:
         phone = phone_number.strip().replace("+91", "").replace(" ", "").replace("-", "")
         entered_otp = entered_otp.strip()
 
-        # Test OTP allowed only in non-production environments
+        # Test OTP allowed only in non-production environments when DEV_OTP_BYPASS is active
         if entered_otp == "123456":
-            if settings.ENVIRONMENT == "production":
+            if not settings.DEV_OTP_BYPASS or settings.ENVIRONMENT.lower() in ["production", "prod"]:
                 return {
                     "success": False,
                     "message": "Invalid OTP verification code."

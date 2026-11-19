@@ -161,7 +161,10 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  void _saveSession(String phone, String name, String id) async {
+  void _saveSession(String phone, String name, String id, [String token = ""]) async {
+    if (token.isNotEmpty) {
+      await Preferences.setString(Preferences.keyJwtToken, token);
+    }
     await Preferences.setString(Preferences.keyUserId, id);
     await Preferences.setString(Preferences.keyUserPhone, phone);
 
@@ -337,8 +340,8 @@ class _MainShellState extends State<MainShell> {
               },
             ),
             AuthScreen(
-              onLoginSuccess: (phone, name, id) {
-                _saveSession(phone, name, id);
+              onLoginSuccess: (phone, name, id, token) {
+                _saveSession(phone, name, id, token);
               },
               onCancel: () {
                 setState(() => _currentIndex = 0);

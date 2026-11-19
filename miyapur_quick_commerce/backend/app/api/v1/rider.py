@@ -175,10 +175,14 @@ def toggle_duty(update: RiderDutyUpdate, auth: dict = Depends(get_current_rider)
 @router.get("/orders/available")
 def get_available_orders(auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
-    Fetches orders that are PACKED or PLACED and ready for delivery partner pickup.
+    Fetches orders that are PACKED by dark store and ready for delivery partner pickup.
+    Only orders that are packed (or assigned to this rider) are eligible for pickup.
     """
-    _resolve_rider(auth, db)  # ensures caller is a valid rider
-    orders = db.query(Order).filter(Order.status.in_(["PLACED", "PACKED", "OUT_FOR_DELIVERY"])).order_by(Order.created_at.desc()).all()
+    r = _resolve_rider(auth, db)  # ensures caller is a valid rider
+    orders = db.query(Order).filter(
+        Order.status == "PACKED",
+        (Order.rider_id.is_(None) | (Order.rider_id == r.id))
+    ).order_by(Order.created_at.desc()).all()
 
     res = []
     for o in orders:
@@ -217,19 +221,22 @@ def get_available_orders(auth: dict = Depends(get_current_rider), db: Session = 
 async def accept_order(order_id: str, auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
     Rider accepts order atomically to prevent double claiming.
+    Requires order to have been packed by dark store.
     """
     r = _resolve_rider(auth, db)
     order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status in ["OUT_FOR_DELIVERY", "DELIVERED"]:
-        raise HTTPException(status_code=400, detail="Order has already been picked up or delivered by another rider.")
+    if order.status == "PLACED":
+        raise HTTPException(status_code=400, detail="Order is still being prepared & packed by dark store. Please wait until packed.")
 
-    if order.rider_id and order.rider_id != r.id and order.status == "OUT_FOR_DELIVERY":
+    if order.status in ["OUT_FOR_DELIVERY", "DELIVERED"]:
+        raise HTTPException(status_code=400, detail="Order has already been picked up or delivered.")
+
+    if order.rider_id and order.rider_id != r.id:
         raise HTTPException(status_code=400, detail="Order has already been accepted by another fleet partner.")
 
-    order.status = "PACKED"
     order.rider_id = r.id
     order.rider_name = r.name
     order.rider_phone = r.phone
@@ -242,6 +249,8 @@ async def accept_order(order_id: str, auth: dict = Depends(get_current_rider), d
     await ws_manager.broadcast_order_update(order.id, {
         "event": "STATUS_UPDATE",
         "status": order.status,
+        "rider_id": order.rider_id,
+        "rider_name": order.rider_name,
         "message": f"Delivery partner {order.rider_name} assigned and heading to dark store."
     })
 
@@ -268,6 +277,13 @@ async def reject_order(order_id: str, req: dict, auth: dict = Depends(get_curren
         order.rider_phone = None
         order.rider_vehicle = None
         db.commit()
+
+        await ws_manager.broadcast_order_update(order.id, {
+            "event": "RIDER_UNASSIGNED",
+            "status": order.status,
+            "message": "Delivery partner was unassigned. Searching for nearest available rider..."
+        })
+
     return {"success": True, "order_id": order.id, "reason": reason,
             "message": f"Order {order.order_number} declined. It will be re-offered to other riders."}
 

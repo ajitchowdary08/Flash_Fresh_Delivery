@@ -228,7 +228,10 @@ class ApiService {
 
     try {
       final response = await http
-          .get(Uri.parse("$baseUrl/auth/profile/$userId"))
+          .get(
+            Uri.parse("$baseUrl/auth/profile/$userId"),
+            headers: authHeaders(),
+          )
           .timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
@@ -295,7 +298,7 @@ class ApiService {
       final response = await http
           .put(
             Uri.parse("$baseUrl/auth/profile/$userId"),
-            headers: {"Content-Type": "application/json"},
+            headers: authHeaders(),
             body: jsonEncode({"name": name, "email": email}),
           )
           .timeout(const Duration(seconds: 15));
@@ -448,7 +451,7 @@ class ApiService {
       final response = await http
           .post(
             Uri.parse("$baseUrl/auth/addresses/$userId"),
-            headers: {"Content-Type": "application/json"},
+            headers: authHeaders(),
             body: jsonEncode({
               "label": label,
               "house_number": houseNumber,

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 import uuid
 import random
+import secrets
 import json
 from typing import Dict, List
 from pydantic import BaseModel
@@ -198,7 +199,17 @@ def create_order(
     today_prefix = datetime.utcnow().strftime("%Y%m%d")
     today_count = db.query(Order).filter(Order.order_number.like(f"MYP-{today_prefix}-%")).count()
     order_number = f"MYP-{today_prefix}-{today_count + 1:05d}"
-    delivery_otp = str(random.randint(1000, 9999))
+    
+    # Generate unique 4-digit OTP that doesn't collide with any active delivery
+    delivery_otp = f"{secrets.randbelow(9000) + 1000}"
+    for _ in range(20):
+        candidate_otp = f"{secrets.randbelow(9000) + 1000}"
+        if not db.query(Order.id).filter(
+            Order.delivery_otp == candidate_otp,
+            Order.status.in_(["PLACED", "PACKED", "OUT_FOR_DELIVERY"])
+        ).first():
+            delivery_otp = candidate_otp
+            break
 
     new_order = Order(
         id=str(uuid.uuid4()),
