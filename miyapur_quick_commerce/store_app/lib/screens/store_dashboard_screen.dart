@@ -117,26 +117,28 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
   void _handleMarkPacked(String orderId) async {
     final res = await StoreApiService.markOrderPacked(orderId);
     if (!mounted) return;
+    final ok = res["success"] == true;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(res["message"] ?? "📦 Order Marked Packed!"),
-        backgroundColor: const Color(0xFF059669),
+        content: Text(ok ? (res["message"] ?? "📦 Order Marked Packed!") : "❌ ${res["message"] ?? "Mark packed failed."}"),
+        backgroundColor: ok ? const Color(0xFF059669) : Colors.redAccent,
       ),
     );
-    _loadDashboardData();
+    if (ok) _loadDashboardData();
   }
 
   void _handleAssignRider(String orderId) async {
-    final riderId = _selectedRiders[orderId] ?? (_activeRiders.isNotEmpty ? _activeRiders.first["id"]! : "rdr_ravi_01");
+    final riderId = _selectedRiders[orderId] ?? (_activeRiders.isNotEmpty ? _activeRiders.first["id"]! : "rdr_9848012345");
     final res = await StoreApiService.assignRider(orderId, riderId);
     if (!mounted) return;
+    final ok = res["success"] == true;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(res["message"] ?? "🛵 Rider Assigned! Order Out for Delivery."),
-        backgroundColor: const Color(0xFF7C3AED),
+        content: Text(ok ? (res["message"] ?? "🛵 Rider Assigned! Order Out for Delivery.") : "❌ ${res["message"] ?? "Rider assignment failed."}"),
+        backgroundColor: ok ? const Color(0xFF7C3AED) : Colors.redAccent,
       ),
     );
-    _loadDashboardData();
+    if (ok) _loadDashboardData();
   }
 
   void _showWeighModal(String orderId, String orderNum) {
@@ -339,14 +341,20 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     );
 
     if (!mounted) return;
+    final ok = res["success"] == true;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(res["message"] ?? "Product Added!"), backgroundColor: const Color(0xFF059669)),
+      SnackBar(
+        content: Text(ok ? (res["message"] ?? "Product Added!") : "❌ ${res["message"] ?? "Add product failed."}"),
+        backgroundColor: ok ? const Color(0xFF059669) : Colors.redAccent,
+      ),
     );
 
-    _newProductNameCtrl.clear();
-    _newProductDescCtrl.clear();
-    _newProductImageCtrl.clear();
-    _loadDashboardData();
+    if (ok) {
+      _newProductNameCtrl.clear();
+      _newProductDescCtrl.clear();
+      _newProductImageCtrl.clear();
+      _loadDashboardData();
+    }
   }
 
   @override
@@ -812,11 +820,16 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                             ),
                             onPressed: () async {
                               final q = int.tryParse(qtyCtrl.text) ?? (item['stock_qty'] as int);
-                              await StoreApiService.updateStock(vId, q);
+                              final res = await StoreApiService.updateStock(vId, q);
                               if (!mounted) return;
+                              final ok = res["success"] == true;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("📦 Stock Updated!"), backgroundColor: Color(0xFF059669)),
+                                SnackBar(
+                                  content: Text(ok ? "📦 ${res["message"] ?? "Stock Updated!"}" : "❌ ${res["message"] ?? "Stock update failed."}"),
+                                  backgroundColor: ok ? const Color(0xFF059669) : Colors.redAccent,
+                                ),
                               );
+                              if (ok) _loadDashboardData();
                             },
                             icon: const Icon(Icons.inventory_2_rounded, size: 12),
                             label: const Text("Stock", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -835,7 +848,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                               final price = double.tryParse(priceCtrl.text) ?? (item['price'] as num).toDouble();
                               final stock = int.tryParse(qtyCtrl.text) ?? (item['stock_qty'] as int);
 
-                              await StoreApiService.updateProductDetail(
+                              final res = await StoreApiService.updateProductDetail(
                                 productId: pId,
                                 variantId: vId,
                                 productName: name,
@@ -844,10 +857,18 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                                 stockQty: stock,
                               );
                               if (!mounted) return;
+                              // CRITICAL: only show success if the backend actually saved.
+                              // Previously this always said "✏️ Details Saved!" even when
+                              // the request failed — which is why price updates didn't reach
+                              // the customer app (the save silently failed).
+                              final ok = res["success"] == true;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("✏️ Details Saved!"), backgroundColor: Color(0xFF7C3AED)),
+                                SnackBar(
+                                  content: Text(ok ? "✏️ ${res["message"] ?? "Details Saved!"}" : "❌ ${res["message"] ?? "Save failed. Please retry."}"),
+                                  backgroundColor: ok ? const Color(0xFF7C3AED) : Colors.redAccent,
+                                ),
                               );
-                              _loadDashboardData();
+                              if (ok) _loadDashboardData();
                             },
                             icon: const Icon(Icons.edit_rounded, size: 12),
                             label: const Text("Save All", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),

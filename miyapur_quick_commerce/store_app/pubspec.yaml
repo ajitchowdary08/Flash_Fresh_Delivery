@@ -34,6 +34,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.6.0
   intl: ^0.20.3
+  # Persistent JWT token storage for manager login (the backend now requires
+  # role=MANAGER auth on all /store/* routes).
+  shared_preferences: ^2.5.6
 
 dev_dependencies:
   flutter_test:

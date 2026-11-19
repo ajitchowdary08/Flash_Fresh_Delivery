@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'screens/rider_auth_screen.dart';
 import 'screens/rider_home_screen.dart';
+import 'screens/rider_login_screen.dart';
+import 'utils/rider_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await RiderPreferences.init();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -14,16 +15,11 @@ void main() async {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-
-  final prefs = await SharedPreferences.getInstance();
-  final isLoggedIn = prefs.getBool("is_rider_logged_in") ?? false;
-
-  runApp(FlashFreshRiderApp(isLoggedIn: isLoggedIn));
+  runApp(const FlashFreshRiderApp());
 }
 
 class FlashFreshRiderApp extends StatelessWidget {
-  final bool isLoggedIn;
-  const FlashFreshRiderApp({super.key, required this.isLoggedIn});
+  const FlashFreshRiderApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -34,8 +30,8 @@ class FlashFreshRiderApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF10121A),
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFFC8019),
-          secondary: Color(0xFF00C853),
+          primary: Color(0xFFFC8019), // Flash Fresh Orange
+          secondary: Color(0xFF00C853), // Partner Green
           surface: Color(0xFF1C1E29),
           onPrimary: Colors.white,
           onSurface: Colors.white,
@@ -56,7 +52,9 @@ class FlashFreshRiderApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: isLoggedIn ? const RiderHomeScreen() : const RiderAuthScreen(),
+      // Gate the home screen behind a valid login. Previously the app booted
+      // straight into RiderHomeScreen with no authentication at all.
+      home: RiderPreferences.isLoggedIn ? const RiderHomeScreen() : const RiderLoginScreen(),
     );
   }
 }
