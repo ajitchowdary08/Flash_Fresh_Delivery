@@ -19,25 +19,57 @@ def init_db():
 
     # Lightweight additive migration: add columns that were introduced to
     # already-existing tables (users.role, users.updated_at, orders.updated_at,
-    # orders.rider_* nullable changes, etc.) without dropping data. SQLite has
-    # no ALTER TABLE ADD COLUMN IF NOT EXISTS, so we introspect and skip errors.
+    # riders.user_id, etc.) without dropping data. Compatible with SQLite & Postgres.
     from sqlalchemy import inspect, text
     try:
         inspector = inspect(engine)
         def add_column_if_missing(table_name, column_name, column_ddl):
-            cols = [c["name"] for c in inspector.get_columns(table_name)]
-            if column_name not in cols:
-                with engine.begin() as conn:
-                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_ddl}"))
+            try:
+                if inspector.has_table(table_name):
+                    cols = [c["name"] for c in inspector.get_columns(table_name)]
+                    if column_name not in cols:
+                        with engine.begin() as conn:
+                            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_ddl}"))
+            except Exception as ex:
+                print(f"Migration: Could not add column {column_name} to {table_name}: {ex}")
+
+        # Users table updates
         add_column_if_missing("users", "role", "VARCHAR DEFAULT 'CUSTOMER'")
-        add_column_if_missing("users", "is_active", "BOOLEAN DEFAULT 1")
-        add_column_if_missing("users", "updated_at", "DATETIME")
-        add_column_if_missing("orders", "updated_at", "DATETIME")
-        # Make rider fields effectively nullable for old rows (SQLite ignores
-        # NOT NULL changes; new rows are created nullable by the model anyway).
-    except Exception:
-        # Migration is best-effort on dev DBs; production should use Alembic.
-        pass
+        add_column_if_missing("users", "is_active", "BOOLEAN DEFAULT TRUE")
+        add_column_if_missing("users", "monthly_credit_limit", "FLOAT DEFAULT 5000.0")
+        add_column_if_missing("users", "current_monthly_dues", "FLOAT DEFAULT 0.0")
+        add_column_if_missing("users", "is_pay_later_active", "BOOLEAN DEFAULT TRUE")
+        add_column_if_missing("users", "updated_at", "TIMESTAMP")
+
+        # Orders table updates
+        add_column_if_missing("orders", "updated_at", "TIMESTAMP")
+        add_column_if_missing("orders", "rider_id", "VARCHAR")
+        add_column_if_missing("orders", "rider_name", "VARCHAR")
+        add_column_if_missing("orders", "rider_phone", "VARCHAR")
+        add_column_if_missing("orders", "rider_vehicle", "VARCHAR")
+        add_column_if_missing("orders", "rider_lat", "FLOAT")
+        add_column_if_missing("orders", "rider_lng", "FLOAT")
+        add_column_if_missing("orders", "freshness_rating", "INTEGER")
+        add_column_if_missing("orders", "rider_rating", "INTEGER")
+        add_column_if_missing("orders", "review_notes", "TEXT")
+        add_column_if_missing("orders", "delivery_otp", "VARCHAR DEFAULT '4921'")
+        add_column_if_missing("orders", "is_sunday_meat_order", "BOOLEAN DEFAULT FALSE")
+
+        # Riders table updates
+        add_column_if_missing("riders", "user_id", "VARCHAR")
+        add_column_if_missing("riders", "vehicle", "VARCHAR DEFAULT ''")
+        add_column_if_missing("riders", "rating", "FLOAT DEFAULT 5.0")
+        add_column_if_missing("riders", "is_online", "BOOLEAN DEFAULT FALSE")
+        add_column_if_missing("riders", "is_active", "BOOLEAN DEFAULT TRUE")
+        add_column_if_missing("riders", "current_lat", "FLOAT")
+        add_column_if_missing("riders", "current_lng", "FLOAT")
+        add_column_if_missing("riders", "today_earnings", "FLOAT DEFAULT 0.0")
+        add_column_if_missing("riders", "completed_trips_today", "INTEGER DEFAULT 0")
+        add_column_if_missing("riders", "cod_cash_in_hand", "FLOAT DEFAULT 0.0")
+        add_column_if_missing("riders", "created_at", "TIMESTAMP")
+        add_column_if_missing("riders", "updated_at", "TIMESTAMP")
+    except Exception as e:
+        print(f"Migration error during init_db: {e}")
 
     db = SessionLocal()
     try:
