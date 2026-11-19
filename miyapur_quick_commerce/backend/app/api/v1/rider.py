@@ -235,8 +235,7 @@ def get_assigned_orders(auth: dict = Depends(get_current_rider), db: Session = D
     r = _resolve_rider(auth, db)
     orders = db.query(Order).filter(
         (Order.rider_id == r.id) | (Order.rider_phone == r.phone),
-        Order.status.in_(["PACKED", "OUT_FOR_DELIVERY"]),
-        Order.delivered_at.is_(None)
+        Order.status.in_(["PACKED", "OUT_FOR_DELIVERY"])
     ).order_by(Order.created_at.desc()).all()
 
     return [_serialize_order_for_rider(o) for o in orders]
