@@ -57,15 +57,26 @@ VALID_STATE_TRANSITIONS = {
 }
 
 @router.post("/create")
-def create_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
+def create_order(
+    req: CreateOrderRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
     """
     1. Server-authoritative idempotency check (prevents double-charge/duplicate order).
-    2. Looks up canonical product prices & stock from database (security check).
-    3. Calculates items total, delivery charge (no radius restriction — we deliver
+    2. Enforces caller identity matches authenticated token in production.
+    3. Looks up canonical product prices & stock from database (security check).
+    4. Calculates items total, delivery charge (no radius restriction — we deliver
        anywhere; no promo codes).
-    4. Generates 4-digit Delivery Verification OTP.
-    5. Creates official Cashfree Sandbox payment session.
+    5. Generates 4-digit Delivery Verification OTP.
+    6. Creates official Cashfree Sandbox payment session.
     """
+    if user.get("role") == "CUSTOMER" and user.get("sub") != "usr_guest_local" \
+            and user.get("sub") != req.user_id and f"usr_{user.get('phone')}" != req.user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Unauthorized: You cannot place an order for another user account.",
+        )
     if req.idempotency_key:
         existing = db.query(Order).filter(Order.idempotency_key == req.idempotency_key).first()
         if existing:
