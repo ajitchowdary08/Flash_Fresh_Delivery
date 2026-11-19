@@ -489,7 +489,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "High demand in Miyapur Central! Switch online to receive instant delivery batches.",
+                      "High demand in Miyapur Central! Switch online to receive delivery orders.",
                       style: TextStyle(
                         color: Color(0xFFFFB380),
                         fontSize: 11,
@@ -1014,7 +1014,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Text(
-                          "NEW DELIVERY BATCH",
+                          "NEW DELIVERY ORDER",
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w900,

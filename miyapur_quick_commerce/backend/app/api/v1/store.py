@@ -264,7 +264,7 @@ async def assign_rider_to_order(
         "vehicle": rider_row.vehicle or "—",
     }
 
-    order.status = "OUT_FOR_DELIVERY"
+    order.status = "PACKED"
     order.rider_id = rider_row.id
     order.rider_name = rider_row.name
     order.rider_phone = rider_row.phone
@@ -279,8 +279,8 @@ async def assign_rider_to_order(
     # Broadcast live status update over WebSocket to customer app
     await ws_manager.broadcast_order_update(order.id, {
         "event": "STATUS_UPDATE",
-        "status": "OUT_FOR_DELIVERY",
-        "message": f"Rider {rider['name']} ({rider['vehicle']}) has picked up your order!",
+        "status": "PACKED",
+        "message": f"Rider {rider['name']} ({rider['vehicle']}) has been assigned to your order!",
         "rider": rider,
     })
 

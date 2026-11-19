@@ -325,7 +325,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     _bikeIcon = await BikeMarkerIcon.createZomatoBikeMarker(
       etaMins: _etaMins,
       headingDeg: _getCurrentBearing(),
-      riderName: _riderInfo?["name"] ?? "Ravi",
+      riderName: _riderInfo?["name"] ?? "",
     );
     if (mounted) {
       _syncBikePositionMarker();
@@ -475,7 +475,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     final newIcon = await BikeMarkerIcon.createZomatoBikeMarker(
       etaMins: _etaMins,
       headingDeg: bearing,
-      riderName: _riderInfo?["name"] ?? "Ravi",
+      riderName: _riderInfo?["name"] ?? "",
     );
     if (!mounted) return;
     setState(() {

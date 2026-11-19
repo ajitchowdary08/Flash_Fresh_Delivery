@@ -20,7 +20,7 @@ class BikeMarkerIcon {
   static Future<BitmapDescriptor> createZomatoBikeMarker({
     required int etaMins,
     double headingDeg = 0.0,
-    String riderName = "Ravi",
+    String riderName = "",
   }) async {
     // Quantize heading to 5-degree increments to keep the memory cache compact
     final quantHeading = (headingDeg / 5).round() * 5;

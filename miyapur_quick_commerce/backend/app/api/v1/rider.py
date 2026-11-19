@@ -180,8 +180,18 @@ def get_available_orders(auth: dict = Depends(get_current_rider), db: Session = 
     """
     r = _resolve_rider(auth, db)  # ensures caller is a valid rider
     orders = db.query(Order).filter(
-        Order.status == "PACKED",
-        (Order.rider_id.is_(None) | (Order.rider_id == r.id))
+        (
+            (Order.status == "PACKED") & (
+                Order.rider_id.is_(None) |
+                (Order.rider_id == r.id) |
+                (Order.rider_phone == r.phone)
+            )
+        ) | (
+            (Order.status == "OUT_FOR_DELIVERY") & (
+                (Order.rider_id == r.id) |
+                (Order.rider_phone == r.phone)
+            )
+        )
     ).order_by(Order.created_at.desc()).all()
 
     res = []
@@ -231,10 +241,21 @@ async def accept_order(order_id: str, auth: dict = Depends(get_current_rider), d
     if order.status == "PLACED":
         raise HTTPException(status_code=400, detail="Order is still being prepared & packed by dark store. Please wait until packed.")
 
-    if order.status in ["OUT_FOR_DELIVERY", "DELIVERED"]:
-        raise HTTPException(status_code=400, detail="Order has already been picked up or delivered.")
+    if order.status == "DELIVERED":
+        raise HTTPException(status_code=400, detail="Order has already been delivered.")
 
-    if order.rider_id and order.rider_id != r.id:
+    if order.status == "OUT_FOR_DELIVERY":
+        if order.rider_id == r.id or order.rider_phone == r.phone:
+            return {
+                "success": True,
+                "order_id": order.id,
+                "order_number": order.order_number,
+                "status": order.status,
+                "message": f"Order {order.order_number} is out for delivery. Resuming navigation."
+            }
+        raise HTTPException(status_code=400, detail="Order has already been picked up by another rider.")
+
+    if order.rider_id and order.rider_id != r.id and order.rider_phone != r.phone:
         raise HTTPException(status_code=400, detail="Order has already been accepted by another fleet partner.")
 
     order.rider_id = r.id

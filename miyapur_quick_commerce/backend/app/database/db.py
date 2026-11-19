@@ -282,9 +282,8 @@ def init_db():
             db.refresh(r)
             return r
 
+        # Single dedicated fleet partner — Ravi Kumar
         get_or_create_rider("9848012345", "Ravi Kumar", "Hero Electric (TS 07 EK 4921)")
-        get_or_create_rider("9876524680", "Suresh Goud", "Ather 450X (TS 08 FA 1024)")
-        get_or_create_rider("9123456789", "Naresh Krishna", "Ola S1 Pro (TS 07 AB 9988)")
 
         # ----------------------------------------------------------------------
         # Seed promo codes (previously a hardcoded Python dict in catalog.py).
