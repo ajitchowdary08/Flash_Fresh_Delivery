@@ -5,13 +5,6 @@ import 'package:flutter/services.dart';
 import '../services/rider_api_service.dart';
 import 'rider_home_screen.dart';
 
-/// OTP login for the rider app. Riders share the customer OTP flow, but the
-/// backend resolves role=RIDER from the users table (seeded rider phones).
-/// On success the JWT is persisted and the app proceeds to the home screen.
-///
-/// For local dev, the backend returns the OTP in the API response when
-/// SMS_API_KEY is not set — the screen shows it so you can log in without a
-/// real SMS. In production the OTP is only delivered by SMS.
 class RiderLoginScreen extends StatefulWidget {
   const RiderLoginScreen({super.key});
 
@@ -24,7 +17,7 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
   final _otpCtrl = TextEditingController();
   bool _otpSent = false;
   bool _loading = false;
-  String? _devOtp; // only populated in non-production by the backend
+  String? _devOtp;
   String? _error;
 
   @override

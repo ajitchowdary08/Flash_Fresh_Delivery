@@ -8,7 +8,6 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 from app.core.config import settings
 
-# Redis Client for distributed OTP session caching & TTL
 try:
     import redis
     redis_client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True, socket_timeout=2)

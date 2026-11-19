@@ -68,6 +68,18 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     _vPriceCtrl.dispose();
     _vStockCtrl.dispose();
     _weighWeightCtrl.dispose();
+    for (final c in _nameCtrls.values) {
+      c.dispose();
+    }
+    for (final c in _labelCtrls.values) {
+      c.dispose();
+    }
+    for (final c in _priceCtrls.values) {
+      c.dispose();
+    }
+    for (final c in _stockCtrls.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -262,7 +274,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                 Navigator.pop(ctx);
                 final messenger = ScaffoldMessenger.of(context);
                 final w = double.tryParse(_weighWeightCtrl.text) ?? 520;
-                await StoreApiService.recordMeatWeight(
+                final res = await StoreApiService.recordMeatWeight(
                   orderId: _weighOrderId!,
                   weightG: w,
                   cutType: _cutStyle,
@@ -270,10 +282,14 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                   skinless: _skinless,
                 );
                 if (!mounted) return;
+                final ok = res['success'] == true;
                 messenger.showSnackBar(
-                  SnackBar(content: Text("🥩 Weight ${w.toInt()}g Recorded & Bag Sealed!"), backgroundColor: const Color(0xFF059669)),
+                  SnackBar(
+                    content: Text(ok ? "🥩 Weight ${w.toInt()}g Recorded & Bag Sealed!" : "❌ ${res['message'] ?? 'Failed to record weight'}"),
+                    backgroundColor: ok ? const Color(0xFF059669) : Colors.redAccent,
+                  ),
                 );
-                _loadDashboardData();
+                if (ok) _loadDashboardData();
               },
               child: const Text("Save & Seal Bag", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
@@ -721,6 +737,34 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
             ],
           ),
           const Divider(height: 20),
+          const Text("Select Order to Weigh:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            value: _packingQueue.any((o) => o['order_id'] == _weighOrderId) ? _weighOrderId : null,
+            hint: const Text("Choose an active order...", style: TextStyle(fontSize: 12)),
+            items: _packingQueue.map((o) {
+              final isMeat = o['is_sunday_meat_order'] == true;
+              return DropdownMenuItem<String>(
+                value: o['order_id'] as String,
+                child: Text(
+                  "${o['order_number']}${isMeat ? ' 🥩' : ''} - ₹${o['total']}",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isMeat ? FontWeight.bold : FontWeight.normal,
+                    color: isMeat ? const Color(0xFFD97706) : Colors.black87,
+                  ),
+                ),
+              );
+            }).toList(),
+            onChanged: (val) {
+              setState(() => _weighOrderId = val);
+            },
+            decoration: InputDecoration(
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
+          const SizedBox(height: 12),
           const Text("Enter Weight (Grams):", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           const SizedBox(height: 6),
           TextField(
@@ -737,33 +781,32 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD97706), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               onPressed: () async {
                 final w = double.tryParse(_weighWeightCtrl.text) ?? 520;
-                final meatOrders = _packingQueue.where((o) => o['is_sunday_meat_order'] == true).toList();
-                final targetOrderId = _weighOrderId ?? (meatOrders.isNotEmpty ? meatOrders.first['order_id'] : (_packingQueue.isNotEmpty ? _packingQueue.first['order_id'] : null));
-                if (targetOrderId != null) {
-                  final res = await StoreApiService.recordMeatWeight(
-                    orderId: targetOrderId,
-                    weightG: w,
-                    cutType: _cutStyle,
-                    turmericWash: _turmericWash,
-                    skinless: _skinless,
-                  );
-                  if (!mounted) return;
-                  final ok = res['success'] == true;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(ok ? "🥩 Verified Weight ${w.toInt()}g Sealed for Order!" : "❌ ${res['message'] ?? 'Failed to record weight'}"),
-                      backgroundColor: ok ? const Color(0xFFD97706) : Colors.redAccent,
-                    ),
-                  );
-                  if (ok) _loadDashboardData();
-                } else {
+                if (_weighOrderId == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text("No active orders in queue to record weight for."),
+                      content: Text("Please select an order from the dropdown before recording weight."),
                       backgroundColor: Colors.redAccent,
                     ),
                   );
+                  return;
                 }
+                final targetOrderId = _weighOrderId!;
+                final res = await StoreApiService.recordMeatWeight(
+                  orderId: targetOrderId,
+                  weightG: w,
+                  cutType: _cutStyle,
+                  turmericWash: _turmericWash,
+                  skinless: _skinless,
+                );
+                if (!mounted) return;
+                final ok = res['success'] == true;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(ok ? "🥩 Verified Weight ${w.toInt()}g Sealed for Order!" : "❌ ${res['message'] ?? 'Failed to record weight'}"),
+                    backgroundColor: ok ? const Color(0xFFD97706) : Colors.redAccent,
+                  ),
+                );
+                if (ok) _loadDashboardData();
               },
               icon: const Icon(Icons.verified_rounded, size: 18, color: Colors.white),
               label: const Text("Save Net Weight & Seal Bag", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),

@@ -117,7 +117,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
     HapticFeedback.heavyImpact();
     final res = await RiderApiService.toggleDuty(val);
     if (!mounted) return;
-    final bool isOnlineNow = (res["is_online"] as bool?) ?? (res["success"] == true ? val : _isOnline);
+    final bool isOnlineNow =
+        (res["is_online"] as bool?) ??
+        (res["success"] == true ? val : _isOnline);
     setState(() {
       _isOnline = isOnlineNow;
       if (!_isOnline) {
@@ -414,7 +416,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen>
                         ),
                       ),
                       const Text(
-                        "Miyapur Central Dark Store Hub (Pillar 84)",
+                        "Ganapathi Hub",
                         style: TextStyle(color: Colors.white70, fontSize: 11),
                       ),
                     ],
