@@ -65,10 +65,16 @@ class _CartScreenState extends State<CartScreen> {
         name: savedName,
         address: Preferences.getString(Preferences.keyActiveLocAddress),
         latitude: Preferences.getDouble(Preferences.keyActiveLocLat, 17.495101),
-        longitude: Preferences.getDouble(Preferences.keyActiveLocLng, 78.367535),
+        longitude: Preferences.getDouble(
+          Preferences.keyActiveLocLng,
+          78.367535,
+        ),
         landmark: "",
         distanceKm: Preferences.getDouble(Preferences.keyActiveLocDist, 0.0),
-        isServiceable: Preferences.getBoolean(Preferences.keyActiveLocServiceable, true),
+        isServiceable: Preferences.getBoolean(
+          Preferences.keyActiveLocServiceable,
+          true,
+        ),
         etaMinutes: Preferences.getInt(Preferences.keyActiveLocEta, 10),
       );
       // Only adopt it if it's more complete than what we already have (avoids
@@ -96,7 +102,6 @@ class _CartScreenState extends State<CartScreen> {
   double get grandTotal =>
       netItemsTotal + deliveryFee + handlingFee + gstAmount;
 
-
   void _showMandatoryAddressPrompt() {
     final flatCtrl = TextEditingController();
     final streetCtrl = TextEditingController();
@@ -116,7 +121,9 @@ class _CartScreenState extends State<CartScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: const Row(
             children: [
               Icon(Icons.location_on_rounded, color: Color(0xFF059669)),
@@ -149,13 +156,15 @@ class _CartScreenState extends State<CartScreen> {
                       : () async {
                           setModalState(() {
                             isGpsDetecting = true;
-                            statusMessage = "Detecting device GPS coordinates...";
+                            statusMessage =
+                                "Detecting device GPS coordinates...";
                           });
 
                           try {
                             bool serviceEnabled = false;
                             try {
-                              serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                              serviceEnabled =
+                                  await Geolocator.isLocationServiceEnabled();
                             } catch (err) {
                               setModalState(() {
                                 isGpsDetecting = false;
@@ -190,12 +199,16 @@ class _CartScreenState extends State<CartScreen> {
                               timeLimit: const Duration(seconds: 12),
                             );
 
-                            final res = await ApiService.reverseGeocode(pos.latitude, pos.longitude);
-                            final isSvc = res["is_serviceable"] ?? false;
+                            final res = await ApiService.reverseGeocode(
+                              pos.latitude,
+                              pos.longitude,
+                            );
                             final dist = (res["distance_km"] ?? 0.0).toDouble();
                             final eta = res["eta_minutes"] != null
                                 ? (res["eta_minutes"] as num).toInt()
-                                : (res["estimated_delivery_minutes"] as num?)?.toInt() ?? 10;
+                                : (res["estimated_delivery_minutes"] as num?)
+                                          ?.toInt() ??
+                                      10;
 
                             final addr = res["address"] ?? res["name"] ?? "";
                             final lm = res["landmark"] ?? "";
@@ -205,8 +218,10 @@ class _CartScreenState extends State<CartScreen> {
 
                             setModalState(() {
                               isGpsDetecting = false;
-                              detectedLat = (res["latitude"] ?? pos.latitude).toDouble();
-                              detectedLng = (res["longitude"] ?? pos.longitude).toDouble();
+                              detectedLat = (res["latitude"] ?? pos.latitude)
+                                  .toDouble();
+                              detectedLng = (res["longitude"] ?? pos.longitude)
+                                  .toDouble();
                               detectedDistKm = dist;
                               detectedServiceable = true; // we deliver anywhere
                               detectedEta = eta;
@@ -221,11 +236,16 @@ class _CartScreenState extends State<CartScreen> {
                           }
                         },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF059669).withOpacity(0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF059669).withOpacity(0.3)),
+                      border: Border.all(
+                        color: const Color(0xFF059669).withOpacity(0.3),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -233,14 +253,23 @@ class _CartScreenState extends State<CartScreen> {
                           const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF059669)),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF059669),
+                            ),
                           )
                         else
-                          const Icon(Icons.my_location_rounded, color: Color(0xFF059669), size: 18),
+                          const Icon(
+                            Icons.my_location_rounded,
+                            color: Color(0xFF059669),
+                            size: 18,
+                          ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            isGpsDetecting ? "Detecting location..." : "📍 Auto-Fill with Current Location (GPS)",
+                            isGpsDetecting
+                                ? "Detecting location..."
+                                : "📍 Auto-Fill with Current Location (GPS)",
                             style: const TextStyle(
                               color: Color(0xFF059669),
                               fontWeight: FontWeight.bold,
@@ -256,12 +285,19 @@ class _CartScreenState extends State<CartScreen> {
                 if (statusMessage != null) ...[
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: (detectedServiceable ?? false) ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
+                      color: (detectedServiceable ?? false)
+                          ? const Color(0xFFECFDF5)
+                          : const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: (detectedServiceable ?? false) ? const Color(0xFF10B981) : Colors.redAccent,
+                        color: (detectedServiceable ?? false)
+                            ? const Color(0xFF10B981)
+                            : Colors.redAccent,
                       ),
                     ),
                     child: Text(
@@ -269,7 +305,9 @@ class _CartScreenState extends State<CartScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: (detectedServiceable ?? false) ? const Color(0xFF047857) : Colors.red.shade700,
+                        color: (detectedServiceable ?? false)
+                            ? const Color(0xFF047857)
+                            : Colors.red.shade700,
                       ),
                     ),
                   ),
@@ -346,12 +384,17 @@ class _CartScreenState extends State<CartScreen> {
                 int finalEta = detectedEta ?? 10;
 
                 if (detectedLat == null) {
-                  final svc = await ApiService.checkServiceability(finalLat, finalLng);
+                  final svc = await ApiService.checkServiceability(
+                    finalLat,
+                    finalLng,
+                  );
                   finalLat = (svc["store_latitude"] ?? 17.495101).toDouble();
                   finalLng = (svc["store_longitude"] ?? 78.367535).toDouble();
                   finalDist = (svc["distance_km"] ?? 0.8).toDouble();
                   finalSvc = svc["is_serviceable"] ?? true;
-                  finalEta = (svc["estimated_delivery_minutes"] as num?)?.toInt() ?? 10;
+                  finalEta =
+                      (svc["estimated_delivery_minutes"] as num?)?.toInt() ??
+                      10;
                 }
 
                 Navigator.pop(ctx);
@@ -393,7 +436,10 @@ class _CartScreenState extends State<CartScreen> {
               },
               child: const Text(
                 "Save & Continue to Pay",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -444,7 +490,11 @@ class _CartScreenState extends State<CartScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.check_rounded, color: Colors.white, size: 50),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 50,
+                      ),
                     ),
                   );
                 },
@@ -453,19 +503,31 @@ class _CartScreenState extends State<CartScreen> {
               const Text(
                 "Payment Successful! 🎉",
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF111827)),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF111827),
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 "Order #$orderNum Confirmed (₹${grandTotal.toStringAsFixed(0)})",
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF059669), fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Color(0xFF059669),
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 "Sent to Central Dark Store for 3-minute packing & 10-min delivery.",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 11, height: 1.3),
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
               ),
               const SizedBox(height: 20),
               LiquidButton(
@@ -482,7 +544,8 @@ class _CartScreenState extends State<CartScreen> {
                         orderNumber: orderNum,
                         grandTotal: grandTotal,
                         etaMinutes: _activeLocation.etaMinutes,
-                        deliveryAddress: "${_activeLocation.name}, ${_activeLocation.address}",
+                        deliveryAddress:
+                            "${_activeLocation.name}, ${_activeLocation.address}",
                         destinationLatitude: _activeLocation.latitude,
                         destinationLongitude: _activeLocation.longitude,
                         items: orderedItems,
@@ -535,7 +598,11 @@ class _CartScreenState extends State<CartScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.close_rounded, color: Colors.white, size: 50),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                        size: 50,
+                      ),
                     ),
                   );
                 },
@@ -544,7 +611,11 @@ class _CartScreenState extends State<CartScreen> {
               const Text(
                 "Payment Unsuccessful ❌",
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF111827)),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF111827),
+                ),
               ),
               const SizedBox(height: 8),
               Container(
@@ -557,7 +628,11 @@ class _CartScreenState extends State<CartScreen> {
                 child: Text(
                   reason,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.red.shade900, fontSize: 12, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: Colors.red.shade900,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -573,13 +648,23 @@ class _CartScreenState extends State<CartScreen> {
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF059669),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   onPressed: () => Navigator.pop(ctx),
-                  icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                  icon: const Icon(
+                    Icons.refresh_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                   label: const Text(
                     "Retry Payment",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),
@@ -602,12 +687,20 @@ class _CartScreenState extends State<CartScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.price_change_rounded, color: Color(0xFFD97706), size: 28),
+            Icon(
+              Icons.price_change_rounded,
+              color: Color(0xFFD97706),
+              size: 28,
+            ),
             SizedBox(width: 10),
             Expanded(
               child: Text(
                 "Prices updated",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF111827)),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Color(0xFF111827),
+                ),
               ),
             ),
           ],
@@ -635,7 +728,10 @@ class _CartScreenState extends State<CartScreen> {
                       Expanded(
                         child: Text(
                           "$name ($variant)",
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF111827),
+                          ),
                         ),
                       ),
                       Text(
@@ -643,7 +739,9 @@ class _CartScreenState extends State<CartScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: up ? Colors.redAccent : const Color(0xFF059669),
+                          color: up
+                              ? Colors.redAccent
+                              : const Color(0xFF059669),
                         ),
                       ),
                     ],
@@ -656,15 +754,26 @@ class _CartScreenState extends State<CartScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Review cart", style: TextStyle(color: Colors.black54)),
+            child: const Text(
+              "Review cart",
+              style: TextStyle(color: Colors.black54),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF059669),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Continue to pay", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              "Continue to pay",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -730,7 +839,8 @@ class _CartScreenState extends State<CartScreen> {
       // Show the price changes and ask the customer to confirm before paying.
       setState(() => _isPlacingOrder = false);
       final accepted = await _showPriceChangeDialog(reprice.priceChanges);
-      if (!accepted) return; // user declined — cart already updated, they can review
+      if (!accepted)
+        return; // user declined — cart already updated, they can review
       setState(() => _isPlacingOrder = true);
     }
 
@@ -753,8 +863,11 @@ class _CartScreenState extends State<CartScreen> {
     if (orderRes['success'] == true) {
       final orderId = orderRes['order_id'];
       final orderNum = orderRes['order_number'];
-      final paymentSessionId = orderRes['payment_session_id'] ??
-          (orderRes['payment'] != null ? orderRes['payment']['payment_session_id'] : null);
+      final paymentSessionId =
+          orderRes['payment_session_id'] ??
+          (orderRes['payment'] != null
+              ? orderRes['payment']['payment_session_id']
+              : null);
 
       Navigator.push(
         context,
@@ -774,7 +887,8 @@ class _CartScreenState extends State<CartScreen> {
                   orderedItems: orderedItems,
                 );
               } else {
-                final reason = result.failureReason ??
+                final reason =
+                    result.failureReason ??
                     "Payment was cancelled or unsuccessful. Your cart is saved — please retry.";
                 _showPaymentFailedDialog(reason: reason);
               }
@@ -787,7 +901,11 @@ class _CartScreenState extends State<CartScreen> {
       // "Unable to create order" snackbar, hiding the actual cause (out-of-
       // radius address, stale cart item, rate limit, etc.). The backend now
       // returns an actionable `detail`/`message` we can show verbatim.
-      final reason = (orderRes['message'] ?? orderRes['detail'] ?? 'Unable to create order. Please try again.').toString();
+      final reason =
+          (orderRes['message'] ??
+                  orderRes['detail'] ??
+                  'Unable to create order. Please try again.')
+              .toString();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(reason),

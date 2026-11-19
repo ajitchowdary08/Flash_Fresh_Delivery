@@ -2,7 +2,6 @@ import 'dart:math' show cos, asin, sqrt;
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -345,7 +344,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool isGpsDetecting = false;
     double? detectedLat;
     double? detectedLng;
-    double? detectedDistKm;
     bool? detectedServiceable;
     String? statusMessage;
 
@@ -459,7 +457,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 pos.latitude,
                                 pos.longitude,
                               );
-                              final isSvc = res["is_serviceable"] ?? false;
                               final dist = (res["distance_km"] ?? 0.0)
                                   .toDouble();
                               final eta = res["eta_minutes"] != null
@@ -481,7 +478,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 detectedLng =
                                     (res["longitude"] ?? pos.longitude)
                                         .toDouble();
-                                detectedDistKm = dist;
                                 detectedServiceable = true;
                                 // We deliver ANYWHERE — there is no radius cap.
                                 statusMessage =
@@ -830,28 +826,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const hubLat = 17.495101;
                             const hubLng = 78.367535;
                             const earthRadiusKm = 6371.0;
-                            double dLat = (finalLat - hubLat) * (3.141592653589793 / 180.0);
-                            double dLng = (finalLng - hubLng) * (3.141592653589793 / 180.0);
-                            double a = 0.5 -
-                                0.5 * (cos(dLat) + cos(hubLat * (3.141592653589793 / 180.0)) * cos(finalLat * (3.141592653589793 / 180.0)) * cos(dLng));
+                            double dLat =
+                                (finalLat - hubLat) *
+                                (3.141592653589793 / 180.0);
+                            double dLng =
+                                (finalLng - hubLng) *
+                                (3.141592653589793 / 180.0);
+                            double a =
+                                0.5 -
+                                0.5 *
+                                    (cos(dLat) +
+                                        cos(
+                                              hubLat *
+                                                  (3.141592653589793 / 180.0),
+                                            ) *
+                                            cos(
+                                              finalLat *
+                                                  (3.141592653589793 / 180.0),
+                                            ) *
+                                            cos(dLng));
                             double distKm = (earthRadiusKm * 2 * asin(sqrt(a)));
-                            int etaMins = (distKm * 1.5 + 8).clamp(8, 120).round();
+                            int etaMins = (distKm * 1.5 + 8)
+                                .clamp(8, 120)
+                                .round();
 
-                            await Preferences.setString(Preferences.keyActiveLocId, "loc_${DateTime.now().millisecondsSinceEpoch}");
-                            await Preferences.setString(Preferences.keyActiveLocName, "$selectedTag: $flatText");
-                            await Preferences.setString(Preferences.keyActiveLocAddress,
-                                landmarkText.isNotEmpty ? "$streetText (Near $landmarkText)" : streetText);
-                            await Preferences.setDouble(Preferences.keyActiveLocLat, finalLat);
-                            await Preferences.setDouble(Preferences.keyActiveLocLng, finalLng);
-                            await Preferences.setDouble(Preferences.keyActiveLocDist, distKm);
-                            await Preferences.setBoolean(Preferences.keyActiveLocServiceable, true);
-                            await Preferences.setInt(Preferences.keyActiveLocEta, etaMins);
+                            await Preferences.setString(
+                              Preferences.keyActiveLocId,
+                              "loc_${DateTime.now().millisecondsSinceEpoch}",
+                            );
+                            await Preferences.setString(
+                              Preferences.keyActiveLocName,
+                              "$selectedTag: $flatText",
+                            );
+                            await Preferences.setString(
+                              Preferences.keyActiveLocAddress,
+                              landmarkText.isNotEmpty
+                                  ? "$streetText (Near $landmarkText)"
+                                  : streetText,
+                            );
+                            await Preferences.setDouble(
+                              Preferences.keyActiveLocLat,
+                              finalLat,
+                            );
+                            await Preferences.setDouble(
+                              Preferences.keyActiveLocLng,
+                              finalLng,
+                            );
+                            await Preferences.setDouble(
+                              Preferences.keyActiveLocDist,
+                              distKm,
+                            );
+                            await Preferences.setBoolean(
+                              Preferences.keyActiveLocServiceable,
+                              true,
+                            );
+                            await Preferences.setInt(
+                              Preferences.keyActiveLocEta,
+                              etaMins,
+                            );
 
                             if (!mounted) return;
                             _fetchProfileAndAddresses();
                             LiquidToast.show(
                               context,
-                              message: "📍 Delivery address saved to your account",
+                              message:
+                                  "📍 Delivery address saved to your account",
                               icon: Icons.home_rounded,
                               accentColor: const Color(0xFF059669),
                             );
@@ -908,7 +947,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       CircleAvatar(
                         radius: 24,
-                        backgroundColor: const Color(0xFF059669).withOpacity(0.12),
+                        backgroundColor: const Color(0xFF059669)
+                            .withOpacity(0.12),
                         child: const Icon(
                           Icons.edit_location_alt_rounded,
                           color: Color(0xFF059669),
@@ -952,40 +992,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 8),
                   Row(
-                    children: [
-                      {"tag": "Home", "icon": Icons.home_rounded},
-                      {"tag": "Work", "icon": Icons.business_rounded},
-                      {"tag": "Other", "icon": Icons.place_rounded},
-                    ].map((item) {
-                      final tag = item["tag"] as String;
-                      final icon = item["icon"] as IconData;
-                      final isSel = selectedTag == tag;
+                    children:
+                        [
+                          {"tag": "Home", "icon": Icons.home_rounded},
+                          {"tag": "Work", "icon": Icons.business_rounded},
+                          {"tag": "Other", "icon": Icons.place_rounded},
+                        ].map((item) {
+                          final tag = item["tag"] as String;
+                          final icon = item["icon"] as IconData;
+                          final isSel = selectedTag == tag;
 
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: ChoiceChip(
-                          avatar: Icon(
-                            icon,
-                            size: 16,
-                            color: isSel ? Colors.white : const Color(0xFF059669),
-                          ),
-                          label: Text(
-                            tag,
-                            style: TextStyle(
-                              color: isSel ? Colors.white : const Color(0xFF111827),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: ChoiceChip(
+                              avatar: Icon(
+                                icon,
+                                size: 16,
+                                color: isSel
+                                    ? Colors.white
+                                    : const Color(0xFF059669),
+                              ),
+                              label: Text(
+                                tag,
+                                style: TextStyle(
+                                  color: isSel
+                                      ? Colors.white
+                                      : const Color(0xFF111827),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              selected: isSel,
+                              selectedColor: const Color(0xFF059669),
+                              backgroundColor: Colors.grey.shade100,
+                              onSelected: (val) {
+                                if (val) setModalState(() => selectedTag = tag);
+                              },
                             ),
-                          ),
-                          selected: isSel,
-                          selectedColor: const Color(0xFF059669),
-                          backgroundColor: Colors.grey.shade100,
-                          onSelected: (val) {
-                            if (val) setModalState(() => selectedTag = tag);
-                          },
-                        ),
-                      );
-                    }).toList(),
+                          );
+                        }).toList(),
                   ),
 
                   const SizedBox(height: 14),
@@ -1025,7 +1070,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           size: 20,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -1066,7 +1113,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           size: 20,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -1107,7 +1156,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           size: 20,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -1162,7 +1213,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             }
 
                             Navigator.pop(ctx);
-                            await ApiService.deleteSavedAddress(widget.userId, addr.id);
+                            await ApiService.deleteSavedAddress(
+                              widget.userId,
+                              addr.id,
+                            );
                             await ApiService.addSavedAddress(
                               userId: widget.userId,
                               label: selectedTag,
@@ -1178,28 +1232,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const hubLat = 17.495101;
                             const hubLng = 78.367535;
                             const earthRadiusKm = 6371.0;
-                            double dLat = (addr.latitude - hubLat) * (3.141592653589793 / 180.0);
-                            double dLng = (addr.longitude - hubLng) * (3.141592653589793 / 180.0);
-                            double a = 0.5 -
-                                0.5 * (cos(dLat) + cos(hubLat * (3.141592653589793 / 180.0)) * cos(addr.latitude * (3.141592653589793 / 180.0)) * cos(dLng));
+                            double dLat =
+                                (addr.latitude - hubLat) *
+                                (3.141592653589793 / 180.0);
+                            double dLng =
+                                (addr.longitude - hubLng) *
+                                (3.141592653589793 / 180.0);
+                            double a =
+                                0.5 -
+                                0.5 *
+                                    (cos(dLat) +
+                                        cos(
+                                              hubLat *
+                                                  (3.141592653589793 / 180.0),
+                                            ) *
+                                            cos(
+                                              addr.latitude *
+                                                  (3.141592653589793 / 180.0),
+                                            ) *
+                                            cos(dLng));
                             double distKm = (earthRadiusKm * 2 * asin(sqrt(a)));
-                            int etaMins = (distKm * 1.5 + 8).clamp(8, 120).round();
+                            int etaMins = (distKm * 1.5 + 8)
+                                .clamp(8, 120)
+                                .round();
 
-                            await Preferences.setString(Preferences.keyActiveLocId, "loc_${DateTime.now().millisecondsSinceEpoch}");
-                            await Preferences.setString(Preferences.keyActiveLocName, "$selectedTag: $flatText");
-                            await Preferences.setString(Preferences.keyActiveLocAddress,
-                                landmarkText.isNotEmpty ? "$streetText (Near $landmarkText)" : streetText);
-                            await Preferences.setDouble(Preferences.keyActiveLocLat, addr.latitude);
-                            await Preferences.setDouble(Preferences.keyActiveLocLng, addr.longitude);
-                            await Preferences.setDouble(Preferences.keyActiveLocDist, distKm);
-                            await Preferences.setBoolean(Preferences.keyActiveLocServiceable, true);
-                            await Preferences.setInt(Preferences.keyActiveLocEta, etaMins);
+                            await Preferences.setString(
+                              Preferences.keyActiveLocId,
+                              "loc_${DateTime.now().millisecondsSinceEpoch}",
+                            );
+                            await Preferences.setString(
+                              Preferences.keyActiveLocName,
+                              "$selectedTag: $flatText",
+                            );
+                            await Preferences.setString(
+                              Preferences.keyActiveLocAddress,
+                              landmarkText.isNotEmpty
+                                  ? "$streetText (Near $landmarkText)"
+                                  : streetText,
+                            );
+                            await Preferences.setDouble(
+                              Preferences.keyActiveLocLat,
+                              addr.latitude,
+                            );
+                            await Preferences.setDouble(
+                              Preferences.keyActiveLocLng,
+                              addr.longitude,
+                            );
+                            await Preferences.setDouble(
+                              Preferences.keyActiveLocDist,
+                              distKm,
+                            );
+                            await Preferences.setBoolean(
+                              Preferences.keyActiveLocServiceable,
+                              true,
+                            );
+                            await Preferences.setInt(
+                              Preferences.keyActiveLocEta,
+                              etaMins,
+                            );
 
                             if (!mounted) return;
                             _fetchProfileAndAddresses();
                             LiquidToast.show(
                               context,
-                              message: "📍 Delivery address updated successfully",
+                              message:
+                                  "📍 Delivery address updated successfully",
                               icon: Icons.check_circle_rounded,
                               accentColor: const Color(0xFF059669),
                             );
@@ -1669,7 +1766,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(),
-                                      onPressed: () => _showEditAddressDialog(addr),
+                                      onPressed: () =>
+                                          _showEditAddressDialog(addr),
                                     ),
                                     const SizedBox(width: 10),
                                     IconButton(
@@ -1681,7 +1779,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(),
                                       onPressed: () async {
-                                        await ApiService.deleteSavedAddress(widget.userId, addr.id);
+                                        await ApiService.deleteSavedAddress(
+                                          widget.userId,
+                                          addr.id,
+                                        );
                                         _fetchProfileAndAddresses();
                                         if (mounted) {
                                           LiquidToast.show(
@@ -1710,7 +1811,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderColor: Colors.grey.shade200,
                         margin: const EdgeInsets.only(bottom: 20),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 2,
+                          ),
                           leading: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
@@ -1733,7 +1837,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           subtitle: const Text(
                             "Raise ticket, FAQs, WhatsApp & Instant Callback",
-                            style: TextStyle(fontSize: 11, color: Colors.black54),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.black54,
+                            ),
                           ),
                           trailing: const Icon(
                             Icons.chevron_right_rounded,

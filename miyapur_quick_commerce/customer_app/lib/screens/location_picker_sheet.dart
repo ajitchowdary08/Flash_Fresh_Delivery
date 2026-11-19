@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../utils/preferences.dart';
@@ -53,7 +55,6 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
     _loadSavedAddressesAndFetch();
   }
 
-
   double get _refLat {
     if (_detectedLocation != null && _detectedLocation!.latitude != 0.0) {
       return _detectedLocation!.latitude;
@@ -76,7 +77,8 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
 
   double _calcDistanceKm(double lat1, double lon1, double lat2, double lon2) {
     const p = 0.017453292519943295;
-    final a = 0.5 -
+    final a =
+        0.5 -
         math.cos((lat2 - lat1) * p) / 2 +
         math.cos(lat1 * p) *
             math.cos(lat2 * p) *
@@ -102,7 +104,10 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
     if (uid.isNotEmpty) {
       addrs = await ApiService.getSavedAddresses(uid);
     }
-    final nearby = await ApiService.getNearbyLocations(lat: _refLat, lng: _refLng);
+    final nearby = await ApiService.getNearbyLocations(
+      lat: _refLat,
+      lng: _refLng,
+    );
     if (mounted) {
       setState(() {
         _savedAddresses = addrs;
@@ -124,13 +129,19 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
     }
     setState(() => _isLoading = true);
     final results = await ApiService.getLocations(query: q);
-    final matchingNearby = _nearbyLocations.where((l) =>
-      l.name.toLowerCase().contains(q) || l.address.toLowerCase().contains(q)
-    ).toList();
+    final matchingNearby = _nearbyLocations
+        .where(
+          (l) =>
+              l.name.toLowerCase().contains(q) ||
+              l.address.toLowerCase().contains(q),
+        )
+        .toList();
 
     final combined = <LocationModel>[...matchingNearby];
     for (var r in results) {
-      if (!combined.any((c) => c.name.toLowerCase() == r.name.toLowerCase() || c.id == r.id)) {
+      if (!combined.any(
+        (c) => c.name.toLowerCase() == r.name.toLowerCase() || c.id == r.id,
+      )) {
         combined.add(r);
       }
     }
@@ -173,8 +184,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
         if (mounted) {
           _showGeofenceBanner(
             title: "Location permission denied",
-            message:
-                "We need location permission to detect your current address. We deliver anywhere — no radius limit.",
+            message: "We need location permission to detect your current address. We deliver anywhere — no radius limit.",
             serviceable: false,
           );
         }
@@ -188,7 +198,10 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
       );
 
       // 3. Authoritative geofence check through the backend.
-      final res = await ApiService.reverseGeocode(position.latitude, position.longitude);
+      final res = await ApiService.reverseGeocode(
+        position.latitude,
+        position.longitude,
+      );
 
       final title = res["name"] ?? "Detected Location";
       String addr = (res["address"] ?? "").toString();
@@ -217,8 +230,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
           target: LatLng(detected.latitude, detected.longitude),
           zoom: 13.5,
         );
-        _mapController
-            ?.animateCamera(CameraUpdate.newCameraPosition(_cameraPosition));
+        _mapController?.animateCamera(
+          CameraUpdate.newCameraPosition(_cameraPosition),
+        );
       });
 
       if (!mounted) return;
@@ -230,7 +244,8 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
     } catch (e) {
       if (mounted) {
         String errStr = e.toString();
-        String msg = "GPS detection failed: $e. Please pick a location manually.";
+        String msg =
+            "GPS detection failed: $e. Please pick a location manually.";
         if (errStr.contains("MissingPluginException")) {
           msg = "Location plugin initializing. Please reopen or reinstall the app to enable device GPS.";
         }
@@ -245,40 +260,47 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
     }
   }
 
-  void _showGeofenceBanner(
-      {required String title,
-      required String message,
-      required bool serviceable}) {
+  void _showGeofenceBanner({
+    required String title,
+    required String message,
+    required bool serviceable,
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
-                serviceable
-                    ? Icons.check_circle_rounded
-                    : Icons.warning_rounded,
-                color: Colors.white,
-                size: 22),
+              serviceable ? Icons.check_circle_rounded : Icons.warning_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(message,
-                      style: const TextStyle(fontSize: 12, color: Colors.white)),
+                  Text(
+                    message,
+                    style: const TextStyle(fontSize: 12, color: Colors.white),
+                  ),
                 ],
               ),
             ),
           ],
         ),
-        backgroundColor:
-            serviceable ? const Color(0xFF059669) : Colors.red.shade700,
+        backgroundColor: serviceable
+            ? const Color(0xFF059669)
+            : Colors.red.shade700,
         duration: const Duration(seconds: 5),
         behavior: SnackBarBehavior.floating,
       ),
@@ -303,7 +325,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: const Row(
             children: [
               Icon(Icons.add_location_alt_rounded, color: Color(0xFF059669)),
@@ -330,13 +354,15 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                       : () async {
                           setModalState(() {
                             isGpsDetecting = true;
-                            statusMessage = "Detecting device GPS coordinates...";
+                            statusMessage =
+                                "Detecting device GPS coordinates...";
                           });
 
                           try {
                             bool serviceEnabled = false;
                             try {
-                              serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                              serviceEnabled =
+                                  await Geolocator.isLocationServiceEnabled();
                             } catch (err) {
                               setModalState(() {
                                 isGpsDetecting = false;
@@ -371,12 +397,16 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                               timeLimit: const Duration(seconds: 12),
                             );
 
-                            final res = await ApiService.reverseGeocode(pos.latitude, pos.longitude);
-                            final isSvc = res["is_serviceable"] ?? false;
+                            final res = await ApiService.reverseGeocode(
+                              pos.latitude,
+                              pos.longitude,
+                            );
                             final dist = (res["distance_km"] ?? 0.0).toDouble();
                             final eta = res["eta_minutes"] != null
                                 ? (res["eta_minutes"] as num).toInt()
-                                : (res["estimated_delivery_minutes"] as num?)?.toInt() ?? 10;
+                                : (res["estimated_delivery_minutes"] as num?)
+                                          ?.toInt() ??
+                                      10;
 
                             final addr = res["address"] ?? res["name"] ?? "";
                             final lm = res["landmark"] ?? "";
@@ -386,8 +416,10 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
 
                             setModalState(() {
                               isGpsDetecting = false;
-                              detectedLat = (res["latitude"] ?? pos.latitude).toDouble();
-                              detectedLng = (res["longitude"] ?? pos.longitude).toDouble();
+                              detectedLat = (res["latitude"] ?? pos.latitude)
+                                  .toDouble();
+                              detectedLng = (res["longitude"] ?? pos.longitude)
+                                  .toDouble();
                               detectedDistKm = dist;
                               detectedServiceable = true; // we deliver anywhere
                               detectedEta = eta;
@@ -402,11 +434,16 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                           }
                         },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF059669).withOpacity(0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF059669).withOpacity(0.3)),
+                      border: Border.all(
+                        color: const Color(0xFF059669).withOpacity(0.3),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -414,14 +451,23 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                           const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF059669)),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF059669),
+                            ),
                           )
                         else
-                          const Icon(Icons.my_location_rounded, color: Color(0xFF059669), size: 18),
+                          const Icon(
+                            Icons.my_location_rounded,
+                            color: Color(0xFF059669),
+                            size: 18,
+                          ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            isGpsDetecting ? "Detecting location..." : "📍 Auto-Fill with Current Location (GPS)",
+                            isGpsDetecting
+                                ? "Detecting location..."
+                                : "📍 Auto-Fill with Current Location (GPS)",
                             style: const TextStyle(
                               color: Color(0xFF059669),
                               fontWeight: FontWeight.bold,
@@ -437,12 +483,19 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                 if (statusMessage != null) ...[
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: (detectedServiceable ?? false) ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
+                      color: (detectedServiceable ?? false)
+                          ? const Color(0xFFECFDF5)
+                          : const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: (detectedServiceable ?? false) ? const Color(0xFF10B981) : Colors.redAccent,
+                        color: (detectedServiceable ?? false)
+                            ? const Color(0xFF10B981)
+                            : Colors.redAccent,
                       ),
                     ),
                     child: Text(
@@ -450,7 +503,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: (detectedServiceable ?? false) ? const Color(0xFF047857) : Colors.red.shade700,
+                        color: (detectedServiceable ?? false)
+                            ? const Color(0xFF047857)
+                            : Colors.red.shade700,
                       ),
                     ),
                   ),
@@ -459,40 +514,58 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                 const SizedBox(height: 14),
                 TextField(
                   controller: flatCtrl,
-                  style: const TextStyle(color: Color(0xFF111827), fontSize: 13),
+                  style: const TextStyle(
+                    color: Color(0xFF111827),
+                    fontSize: 13,
+                  ),
                   decoration: const InputDecoration(
                     labelText: "House / Flat / Floor No.",
                     labelStyle: TextStyle(color: Colors.black54),
                     hintText: "e.g. Flat 402, Block A",
                     hintStyle: TextStyle(color: Colors.black38, fontSize: 12),
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: streetCtrl,
-                  style: const TextStyle(color: Color(0xFF111827), fontSize: 13),
+                  style: const TextStyle(
+                    color: Color(0xFF111827),
+                    fontSize: 13,
+                  ),
                   decoration: const InputDecoration(
                     labelText: "Street / Area / Colony",
                     labelStyle: TextStyle(color: Colors.black54),
                     hintText: "e.g. Near Metro, Hyderabad",
                     hintStyle: TextStyle(color: Colors.black38, fontSize: 12),
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: landmarkCtrl,
-                  style: const TextStyle(color: Color(0xFF111827), fontSize: 13),
+                  style: const TextStyle(
+                    color: Color(0xFF111827),
+                    fontSize: 13,
+                  ),
                   decoration: const InputDecoration(
                     labelText: "Landmark (Optional)",
                     labelStyle: TextStyle(color: Colors.black54),
                     hintText: "e.g. Opposite Park",
                     hintStyle: TextStyle(color: Colors.black38, fontSize: 12),
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -506,10 +579,15 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text("Cancel", style: TextStyle(color: Colors.black54)),
+              child: const Text(
+                "Cancel",
+                style: TextStyle(color: Colors.black54),
+              ),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF059669),
+              ),
               onPressed: () async {
                 final flat = flatCtrl.text.trim();
                 final street = streetCtrl.text.trim();
@@ -517,7 +595,11 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
 
                 if (flat.isEmpty || street.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Please enter house number and street address")),
+                    const SnackBar(
+                      content: Text(
+                        "Please enter house number and street address",
+                      ),
+                    ),
                   );
                   return;
                 }
@@ -532,18 +614,27 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                 int finalEta = detectedEta ?? 10;
 
                 if (detectedLat == null) {
-                  final svc = await ApiService.checkServiceability(_kHubLatitude, _kHubLongitude);
-                  finalLat = (svc["store_latitude"] ?? _kHubLatitude).toDouble();
-                  finalLng = (svc["store_longitude"] ?? _kHubLongitude).toDouble();
+                  final svc = await ApiService.checkServiceability(
+                    _kHubLatitude,
+                    _kHubLongitude,
+                  );
+                  finalLat = (svc["store_latitude"] ?? _kHubLatitude)
+                      .toDouble();
+                  finalLng = (svc["store_longitude"] ?? _kHubLongitude)
+                      .toDouble();
                   finalDist = (svc["distance_km"] ?? 0.5).toDouble();
                   finalSvc = svc["is_serviceable"] ?? true;
-                  finalEta = (svc["estimated_delivery_minutes"] as num?)?.toInt() ?? 10;
+                  finalEta =
+                      (svc["estimated_delivery_minutes"] as num?)?.toInt() ??
+                      10;
                 }
 
                 if (!finalSvc) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text("Delivery not available outside our 10 KM delivery radius."),
+                      content: Text(
+                        "Delivery not available outside our 10 KM delivery radius.",
+                      ),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -555,7 +646,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                 final newLoc = LocationModel(
                   id: "custom_${DateTime.now().millisecondsSinceEpoch}",
                   name: "Home: $flat",
-                  address: landmark.isNotEmpty ? "$street (Near $landmark)" : street,
+                  address: landmark.isNotEmpty
+                      ? "$street (Near $landmark)"
+                      : street,
                   latitude: finalLat,
                   longitude: finalLng,
                   landmark: landmark,
@@ -565,7 +658,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                 );
 
                 // Save to user's saved addresses in backend
-                final uid = widget.userId ?? Preferences.getString(Preferences.keyUserId);
+                final uid =
+                    widget.userId ??
+                    Preferences.getString(Preferences.keyUserId);
                 if (uid.isNotEmpty) {
                   await ApiService.addSavedAddress(
                     userId: uid,
@@ -578,14 +673,38 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                   );
                 }
 
-                await Preferences.setString(Preferences.keyActiveLocId, newLoc.id);
-                await Preferences.setString(Preferences.keyActiveLocName, newLoc.name);
-                await Preferences.setString(Preferences.keyActiveLocAddress, newLoc.address);
-                await Preferences.setDouble(Preferences.keyActiveLocLat, newLoc.latitude);
-                await Preferences.setDouble(Preferences.keyActiveLocLng, newLoc.longitude);
-                await Preferences.setDouble(Preferences.keyActiveLocDist, newLoc.distanceKm);
-                await Preferences.setBoolean(Preferences.keyActiveLocServiceable, newLoc.isServiceable);
-                await Preferences.setInt(Preferences.keyActiveLocEta, newLoc.etaMinutes);
+                await Preferences.setString(
+                  Preferences.keyActiveLocId,
+                  newLoc.id,
+                );
+                await Preferences.setString(
+                  Preferences.keyActiveLocName,
+                  newLoc.name,
+                );
+                await Preferences.setString(
+                  Preferences.keyActiveLocAddress,
+                  newLoc.address,
+                );
+                await Preferences.setDouble(
+                  Preferences.keyActiveLocLat,
+                  newLoc.latitude,
+                );
+                await Preferences.setDouble(
+                  Preferences.keyActiveLocLng,
+                  newLoc.longitude,
+                );
+                await Preferences.setDouble(
+                  Preferences.keyActiveLocDist,
+                  newLoc.distanceKm,
+                );
+                await Preferences.setBoolean(
+                  Preferences.keyActiveLocServiceable,
+                  newLoc.isServiceable,
+                );
+                await Preferences.setInt(
+                  Preferences.keyActiveLocEta,
+                  newLoc.etaMinutes,
+                );
 
                 setState(() {
                   _detectedLocation = newLoc;
@@ -603,7 +722,10 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
               },
               child: const Text(
                 "Save & Use Address",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -615,44 +737,52 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
   Set<Circle> get _mapCircles {
     final Set<Circle> circles = {};
     // 10 KM delivery radius from the hub.
-    circles.add(Circle(
-      circleId: const CircleId("delivery_radius"),
-      center: const LatLng(_kHubLatitude, _kHubLongitude),
-      radius: _kMaxDeliveryRadiusKm * 1000, // meters
-      strokeColor: const Color(0xFF059669),
-      strokeWidth: 2,
-      fillColor: const Color(0x22059969),
-    ));
+    circles.add(
+      Circle(
+        circleId: const CircleId("delivery_radius"),
+        center: const LatLng(_kHubLatitude, _kHubLongitude),
+        radius: _kMaxDeliveryRadiusKm * 1000, // meters
+        strokeColor: const Color(0xFF059669),
+        strokeWidth: 2,
+        fillColor: const Color(0x22059969),
+      ),
+    );
     return circles;
   }
 
   Set<Marker> get _mapMarkers {
     final Set<Marker> markers = {};
     // Hub marker
-    markers.add(Marker(
-      markerId: const MarkerId("hub"),
-      position: const LatLng(_kHubLatitude, _kHubLongitude),
-      infoWindow: const InfoWindow(
-        title: "Flash Fresh Central Dark Store Hub",
-        snippet: "Metro Pillar 84",
+    markers.add(
+      Marker(
+        markerId: const MarkerId("hub"),
+        position: const LatLng(_kHubLatitude, _kHubLongitude),
+        infoWindow: const InfoWindow(
+          title: "Flash Fresh Central Dark Store Hub",
+          snippet: "Metro Pillar 84",
+        ),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       ),
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-    ));
+    );
     // Detected GPS location marker
     if (_detectedLocation != null) {
       final inZone = _detectedLocation!.isServiceable;
-      markers.add(Marker(
-        markerId: const MarkerId("detected"),
-        position:
-            LatLng(_detectedLocation!.latitude, _detectedLocation!.longitude),
-        infoWindow: InfoWindow(
-          title: inZone ? "In delivery zone" : "Outside delivery zone",
-          snippet: "${_detectedLocation!.distanceKm} KM from hub",
+      markers.add(
+        Marker(
+          markerId: const MarkerId("detected"),
+          position: LatLng(
+            _detectedLocation!.latitude,
+            _detectedLocation!.longitude,
+          ),
+          infoWindow: InfoWindow(
+            title: inZone ? "In delivery zone" : "Outside delivery zone",
+            snippet: "${_detectedLocation!.distanceKm} KM from hub",
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            inZone ? BitmapDescriptor.hueAzure : BitmapDescriptor.hueRed,
+          ),
         ),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          inZone ? BitmapDescriptor.hueAzure : BitmapDescriptor.hueRed,
-        ),
-      ));
+      );
     }
     return markers;
   }
@@ -696,8 +826,11 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                         shape: BoxShape.circle,
                         color: const Color(0xFF059669).withOpacity(0.12),
                       ),
-                      child: const Icon(Icons.location_on_rounded,
-                          color: Color(0xFF059669), size: 20),
+                      child: const Icon(
+                        Icons.location_on_rounded,
+                        color: Color(0xFF059669),
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
@@ -707,21 +840,26 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                           Text(
                             "Choose Delivery Pin",
                             style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF111827)),
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF111827),
+                            ),
                           ),
                           Text(
                             "Select delivery address",
-                            style:
-                                TextStyle(fontSize: 11, color: Colors.black54),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.black54,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded,
-                          color: Colors.black54),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.black54,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -767,7 +905,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                         ? const Color(0xFF059669)
                         : Colors.redAccent,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     child: Row(
                       children: [
                         Icon(
@@ -800,7 +940,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                                 "${_detectedLocation!.name} • ${_detectedLocation!.distanceKm} KM from hub"
                                 "${_detectedLocation!.isServiceable ? ' • ETA ~${_detectedLocation!.etaMinutes} mins' : ' • exceeds 10 KM limit'}",
                                 style: TextStyle(
-                                    fontSize: 11, color: Colors.grey.shade700),
+                                  fontSize: 11,
+                                  color: Colors.grey.shade700,
+                                ),
                               ),
                             ],
                           ),
@@ -814,8 +956,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                             child: const Text(
                               "Use",
                               style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF059669)),
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF059669),
+                              ),
                             ),
                           ),
                       ],
@@ -832,7 +975,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                   borderRadius: 16,
                   borderColor: const Color(0xFF059669).withOpacity(0.4),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   onTap: _isDetectingGps ? null : _detectCurrentLocation,
                   child: Row(
                     children: [
@@ -841,20 +986,26 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Color(0xFF059669)),
+                            strokeWidth: 2,
+                            color: Color(0xFF059669),
+                          ),
                         )
                       else
-                        const Icon(Icons.my_location_rounded,
-                            color: Color(0xFF059669), size: 20),
+                        const Icon(
+                          Icons.my_location_rounded,
+                          color: Color(0xFF059669),
+                          size: 20,
+                        ),
                       const SizedBox(width: 10),
                       Text(
                         _isDetectingGps
                             ? "Detecting your location..."
                             : "📍 Detect Current Location (GPS)",
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Color(0xFF059669)),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Color(0xFF059669),
+                        ),
                       ),
                     ],
                   ),
@@ -863,8 +1014,10 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
 
               // Search Field
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: 4.0,
+                ),
                 child: Container(
                   height: 44,
                   decoration: BoxDecoration(
@@ -874,19 +1027,29 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                   ),
                   child: TextField(
                     controller: _searchController,
-                    style:
-                        const TextStyle(color: Color(0xFF111827), fontSize: 13),
+                    style: const TextStyle(
+                      color: Color(0xFF111827),
+                      fontSize: 13,
+                    ),
                     onChanged: (val) => _fetchLocations(val),
                     decoration: InputDecoration(
                       hintText: "Search landmark, area, colony...",
-                      hintStyle:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                      prefixIcon: const Icon(Icons.search_rounded,
-                          color: Color(0xFF059669), size: 20),
+                      hintStyle: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: Color(0xFF059669),
+                        size: 20,
+                      ),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear_rounded,
-                                  color: Colors.black54, size: 18),
+                              icon: const Icon(
+                                Icons.clear_rounded,
+                                color: Colors.black54,
+                                size: 18,
+                              ),
                               onPressed: () {
                                 _searchController.clear();
                                 _fetchLocations();
@@ -911,19 +1074,25 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                   borderRadius: 14,
                   borderColor: const Color(0xFF059669).withOpacity(0.4),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   onTap: _showAddCustomAddressModal,
                   child: const Row(
                     children: [
-                      Icon(Icons.add_location_alt_rounded,
-                          color: Color(0xFF059669), size: 20),
+                      Icon(
+                        Icons.add_location_alt_rounded,
+                        color: Color(0xFF059669),
+                        size: 20,
+                      ),
                       SizedBox(width: 10),
                       Text(
                         "➕ Add Your House / Flat Address",
                         style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Color(0xFF059669)),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Color(0xFF059669),
+                        ),
                       ),
                     ],
                   ),
@@ -940,114 +1109,125 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                 child: _isLoading
                     ? const Center(
                         child: CircularProgressIndicator(
-                            color: Color(0xFF059669)))
+                          color: Color(0xFF059669),
+                        ),
+                      )
                     : _searchController.text.trim().isNotEmpty
-                        ? _locations.isEmpty
-                            ? Center(
-                                child: Text(
-                                  "No matching delivery locations found.",
-                                  style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 13),
+                    ? _locations.isEmpty
+                          ? Center(
+                              child: Text(
+                                "No matching delivery locations found.",
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
                                 ),
-                              )
-                            : ListView.separated(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 4),
-                                itemCount: _locations.length,
-                                separatorBuilder: (context, index) =>
-                                    const SizedBox(height: 8),
-                                itemBuilder: (context, index) {
-                                  final loc = _locations[index];
-                                  final isSelected =
-                                      loc.id == widget.currentLocation.id;
-                                  return _buildLocationCard(loc, isSelected);
-                                },
-                              )
-                        : ListView(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 4),
-                            children: [
-                              // 1. CURRENT LOCATION SECTION
-                              _buildSectionHeader("📍 CURRENT LOCATION"),
-                              const SizedBox(height: 6),
-                              _buildCurrentLocationTile(),
-                              const SizedBox(height: 16),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 4,
+                              ),
+                              itemCount: _locations.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final loc = _locations[index];
+                                final isSelected =
+                                    loc.id == widget.currentLocation.id;
+                                return _buildLocationCard(loc, isSelected);
+                              },
+                            )
+                    : ListView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 4,
+                        ),
+                        children: [
+                          // 1. CURRENT LOCATION SECTION
+                          _buildSectionHeader("📍 CURRENT LOCATION"),
+                          const SizedBox(height: 6),
+                          _buildCurrentLocationTile(),
+                          const SizedBox(height: 16),
 
-                              // 2. SAVED ADDRESSES SECTION
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                          // 2. SAVED ADDRESSES SECTION
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _buildSectionHeader("📌 SAVED ADDRESSES"),
+                              InkWell(
+                                onTap: _showAddCustomAddressModal,
+                                child: const Text(
+                                  "+ Add New",
+                                  style: TextStyle(
+                                    color: Color(0xFF059669),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          if (_savedAddresses.isEmpty)
+                            GlassCard(
+                              blur: 16,
+                              opacity: 0.9,
+                              borderRadius: 16,
+                              borderColor: Colors.grey.shade200,
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
                                 children: [
-                                  _buildSectionHeader("📌 SAVED ADDRESSES"),
-                                  InkWell(
-                                    onTap: _showAddCustomAddressModal,
-                                    child: const Text(
-                                      "+ Add New",
+                                  Icon(
+                                    Icons.location_off_outlined,
+                                    color: Colors.grey.shade400,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      "No saved addresses yet. Tap '+ Add New' to save your house or flat address.",
                                       style: TextStyle(
-                                        color: Color(0xFF059669),
-                                        fontWeight: FontWeight.bold,
                                         fontSize: 12,
+                                        color: Colors.grey.shade600,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 6),
-                              if (_savedAddresses.isEmpty)
-                                GlassCard(
-                                  blur: 16,
-                                  opacity: 0.9,
-                                  borderRadius: 16,
-                                  borderColor: Colors.grey.shade200,
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.location_off_outlined,
-                                          color: Colors.grey.shade400,
-                                          size: 24),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          "No saved addresses yet. Tap '+ Add New' to save your house or flat address.",
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              else
-                                ..._savedAddresses.map((addr) => Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 8.0),
-                                      child: _buildSavedAddressCard(addr),
-                                    )),
-                              const SizedBox(height: 16),
-
-                              // 3. NEARBY LOCATIONS (10 KM ZONE) SECTION
-                              _buildSectionHeader(
-                                  "📍 NEARBY LOCATIONS (NEAR YOU)"),
-                              const SizedBox(height: 2),
-                              Text(
-                                "Spots closest to your current location within 10 KM delivery zone",
-                                style: TextStyle(
-                                    fontSize: 11, color: Colors.grey.shade600),
+                            )
+                          else
+                            ..._savedAddresses.map(
+                              (addr) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: _buildSavedAddressCard(addr),
                               ),
-                              const SizedBox(height: 8),
-                              ..._nearbyLocations.map((loc) {
-                                final isSelected =
-                                    loc.id == widget.currentLocation.id ||
-                                        widget.currentLocation.name == loc.name;
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8.0),
-                                  child: _buildLocationCard(loc, isSelected),
-                                );
-                              }),
-                              const SizedBox(height: 16),
-                            ],
+                            ),
+                          const SizedBox(height: 16),
+
+                          // 3. NEARBY LOCATIONS (10 KM ZONE) SECTION
+                          _buildSectionHeader("📍 NEARBY LOCATIONS (NEAR YOU)"),
+                          const SizedBox(height: 2),
+                          Text(
+                            "Spots closest to your current location within 10 KM delivery zone",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
+                          const SizedBox(height: 8),
+                          ..._nearbyLocations.map((loc) {
+                            final isSelected =
+                                loc.id == widget.currentLocation.id ||
+                                widget.currentLocation.name == loc.name;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: _buildLocationCard(loc, isSelected),
+                            );
+                          }),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
               ),
 
               // Bottom block button when GPS detected an out-of-zone location
@@ -1063,16 +1243,20 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.warning_amber_rounded,
-                            color: Colors.redAccent, size: 20),
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             "Checkout is blocked — your detected location is outside the 10 KM delivery radius. Move closer to the Miyapur hub or pick another address.",
                             style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.w600),
+                              fontSize: 11,
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
@@ -1169,8 +1353,10 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
             ),
             if (isSvc)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF059669),
                   borderRadius: BorderRadius.circular(12),
@@ -1208,8 +1394,11 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                       color: Color(0xFF059669),
                     ),
                   )
-                : const Icon(Icons.my_location_rounded,
-                    color: Color(0xFF059669), size: 20),
+                : const Icon(
+                    Icons.my_location_rounded,
+                    color: Color(0xFF059669),
+                    size: 20,
+                  ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1234,8 +1423,11 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
               ],
             ),
           ),
-          const Icon(Icons.arrow_forward_ios_rounded,
-              color: Color(0xFF059669), size: 14),
+          const Icon(
+            Icons.arrow_forward_ios_rounded,
+            color: Color(0xFF059669),
+            size: 14,
+          ),
         ],
       ),
     );
@@ -1244,7 +1436,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
   Widget _buildSavedAddressCard(SavedAddressModel addr) {
     final isSelected =
         widget.currentLocation.address.contains(addr.streetAddress) ||
-            widget.currentLocation.name.contains(addr.houseNumber);
+        widget.currentLocation.name.contains(addr.houseNumber);
 
     return GlassCard(
       blur: 16,
@@ -1400,8 +1592,9 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                 : Colors.red.withOpacity(0.12),
             child: Icon(
               loc.isServiceable ? Icons.place_rounded : Icons.block_rounded,
-              color:
-                  loc.isServiceable ? const Color(0xFF059669) : Colors.redAccent,
+              color: loc.isServiceable
+                  ? const Color(0xFF059669)
+                  : Colors.redAccent,
               size: 20,
             ),
           ),
@@ -1424,24 +1617,31 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 4),
-                Builder(builder: (context) {
-                  final distUser = _calcDistanceKm(_refLat, _refLng, loc.latitude, loc.longitude);
-                  final distText = distUser < 1.0
-                      ? "${(distUser * 1000).round()} m away"
-                      : "${distUser.toStringAsFixed(1)} km away";
-                  return Text(
-                    loc.isServiceable
-                        ? "📍 $distText from you • ⚡ ~${loc.etaMinutes} mins"
-                        : "❌ Out of 10 KM limit",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: loc.isServiceable
-                          ? const Color(0xFF059669)
-                          : Colors.redAccent,
-                    ),
-                  );
-                }),
+                Builder(
+                  builder: (context) {
+                    final distUser = _calcDistanceKm(
+                      _refLat,
+                      _refLng,
+                      loc.latitude,
+                      loc.longitude,
+                    );
+                    final distText = distUser < 1.0
+                        ? "${(distUser * 1000).round()} m away"
+                        : "${distUser.toStringAsFixed(1)} km away";
+                    return Text(
+                      loc.isServiceable
+                          ? "📍 $distText from you • ⚡ ~${loc.etaMinutes} mins"
+                          : "❌ Out of 10 KM limit",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: loc.isServiceable
+                            ? const Color(0xFF059669)
+                            : Colors.redAccent,
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
