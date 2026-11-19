@@ -177,6 +177,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             } else if (event == "STATUS_UPDATE") {
               final newStatus = json["status"]?.toString();
               if (newStatus != null && mounted) {
+                if (newStatus == "DELIVERED" || newStatus == "CANCELLED") {
+                  _pollingTimer?.cancel();
+                  _pollingTimer = null;
+                }
                 setState(() {
                   _currentStatus = newStatus;
                   _targetProgress = _targetProgressForStatus(newStatus);
@@ -238,13 +242,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     } catch (_) {}
   }
 
-  /// Resolves destination coordinates from widget parameters or addresses, ensuring
-  /// destination is never identical to the Miyapur Dark Store Hub.
+  /// Resolves destination coordinates from widget parameters or addresses
   LatLng _resolveInitialDestination() {
     if (widget.destinationLatitude != null &&
-        widget.destinationLatitude != 0.0 &&
-        (widget.destinationLatitude != _kHubLatitude ||
-            widget.destinationLongitude != _kHubLongitude)) {
+        widget.destinationLatitude != 0.0) {
       return LatLng(
         widget.destinationLatitude!,
         widget.destinationLongitude ?? _kHubLongitude,
@@ -389,6 +390,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         _liveRiderLat = rLat;
         _liveRiderLng = rLng;
       }
+    }
+
+    if (newStatus == "DELIVERED" || newStatus == "CANCELLED") {
+      _pollingTimer?.cancel();
+      _pollingTimer = null;
     }
 
     setState(() {

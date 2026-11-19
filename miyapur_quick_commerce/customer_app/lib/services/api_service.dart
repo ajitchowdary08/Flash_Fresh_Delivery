@@ -301,8 +301,9 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
 
       return response.statusCode == 200;
-    } catch (_) {}
-    return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<List<SavedAddressModel>> getSavedAddresses(
@@ -392,8 +393,9 @@ class ApiService {
           .delete(Uri.parse("$baseUrl/auth/addresses/$addressId"))
           .timeout(const Duration(seconds: 10));
       return response.statusCode == 200;
-    } catch (_) {}
-    return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<bool> addSavedAddress({
@@ -460,8 +462,9 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
 
       return response.statusCode == 200;
-    } catch (_) {}
-    return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<List<OrderHistoryModel>> getOrderHistory(String userId) async {
@@ -918,8 +921,10 @@ class ApiService {
     String promoCode = "";
 
     double netItems = itemsTotal;
-    double deliveryFee = netItems >= 199.0 ? 0.0 : 15.0;
-    double grandTotal = netItems + deliveryFee;
+    double deliveryFee = (netItems >= 199.0 || itemsTotal == 0.0) ? 0.0 : 15.0;
+    double handlingFee = itemsTotal > 0 ? 4.0 : 0.0;
+    double gstAmount = itemsTotal > 0 ? (0.18 * (deliveryFee + handlingFee)) : 0.0;
+    double grandTotal = netItems + deliveryFee + handlingFee + gstAmount;
 
     final orderId = "ord_${DateTime.now().millisecondsSinceEpoch}";
     final orderNum =
@@ -1190,8 +1195,9 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
 
       return response.statusCode == 200;
-    } catch (_) {}
-    return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // 18. Dynamic Support FAQs & Contact

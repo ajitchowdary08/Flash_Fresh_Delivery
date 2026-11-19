@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../widgets/glass_card.dart';
@@ -188,33 +189,35 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            // Cashfree Test Sandbox Info Banner
-            InkWell(
-              onTap: _showCashfreeTestDetailsModal,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF059669).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF059669).withOpacity(0.3)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.developer_mode_rounded, color: Color(0xFF059669), size: 18),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        "🧪 Cashfree Sandbox Active (Tap for Test VPA & Cards)",
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+            if (kDebugMode) ...[
+              const SizedBox(height: 10),
+              // Cashfree Test Sandbox Info Banner (Visible only in debug mode)
+              InkWell(
+                onTap: _showCashfreeTestDetailsModal,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF059669).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF059669).withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.developer_mode_rounded, color: Color(0xFF059669), size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "🧪 Cashfree Sandbox Active (Tap for Test VPA & Cards)",
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                        ),
                       ),
-                    ),
-                    Icon(Icons.chevron_right_rounded, color: Color(0xFF059669), size: 18),
-                  ],
+                      Icon(Icons.chevron_right_rounded, color: Color(0xFF059669), size: 18),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
             const SizedBox(height: 12),
             const SizedBox(height: 16),
             Container(

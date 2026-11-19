@@ -918,13 +918,12 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
-    // Replace cart items with the freshly-priced versions and notify parent.
-    widget.cartItems
-      ..clear()
-      ..addAll(reprice.updatedItems);
-    widget.onCartUpdated();
-
     if (reprice.unavailable.isNotEmpty) {
+      // Update cart when items are unavailable
+      widget.cartItems
+        ..clear()
+        ..addAll(reprice.updatedItems);
+      widget.onCartUpdated();
       setState(() => _isPlacingOrder = false);
       LiquidToast.show(
         context,
@@ -937,13 +936,20 @@ class _CartScreenState extends State<CartScreen> {
     }
 
     if (reprice.priceChanges.isNotEmpty) {
-      // Show the price changes and ask the customer to confirm before paying.
+      // Show the price changes and ask the customer to confirm before updating cart.
       setState(() => _isPlacingOrder = false);
       final accepted = await _showPriceChangeDialog(reprice.priceChanges);
-      if (!accepted)
-        return; // user declined — cart already updated, they can review
+      if (!accepted) {
+        return; // user declined — keep original cart items for review
+      }
       setState(() => _isPlacingOrder = true);
     }
+
+    // Replace cart items with the freshly-priced versions only after confirmation
+    widget.cartItems
+      ..clear()
+      ..addAll(reprice.updatedItems);
+    widget.onCartUpdated();
 
     bool hasMeat = widget.cartItems.any((i) => i.product.isSundayOnly);
 
