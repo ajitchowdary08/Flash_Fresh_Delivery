@@ -36,9 +36,8 @@ class _TripScreenState extends State<TripScreen> {
   bool _sealVerified = true;
   bool _cashCollected = false;
 
-  // Live GPS simulation & sync
-  Timer? _simTimer;
-  bool _isSimulating = false;
+  // Live GPS hardware streaming & sync
+  bool _isGpsStreaming = false;
   List<Map<String, double>> _routeWaypoints = [];
   int _currentWpIdx = 0;
   final RiderLocationService _locationService = RiderLocationService();
@@ -58,7 +57,7 @@ class _TripScreenState extends State<TripScreen> {
   @override
   void dispose() {
     _locationService.stopStreaming();
-    _simTimer?.cancel();
+    _isGpsStreaming = false;
     _otpCtrl.dispose();
     super.dispose();
   }
@@ -66,6 +65,8 @@ class _TripScreenState extends State<TripScreen> {
   Future<void> _startLiveGpsTracking() async {
     try {
       await RiderLocationService.ensurePermission();
+      if (!mounted) return;
+      setState(() => _isGpsStreaming = true);
       _locationService.startStreaming((lat, lng) async {
         if (!mounted || _stage >= 4) return;
         await RiderApiService.updateLocation(widget.order.orderId, lat, lng);
@@ -87,40 +88,6 @@ class _TripScreenState extends State<TripScreen> {
       _routeWaypoints = pts;
       _currentWpIdx = 0;
     });
-  }
-
-  void _toggleSimulatedRide() {
-    if (_isSimulating) {
-      _simTimer?.cancel();
-      setState(() => _isSimulating = false);
-    } else {
-      setState(() => _isSimulating = true);
-      _simTimer = Timer.periodic(const Duration(milliseconds: 1200), (timer) async {
-        if (_currentWpIdx >= _routeWaypoints.length - 1) {
-          timer.cancel();
-          if (!mounted) return;
-          setState(() {
-            _isSimulating = false;
-            _currentWpIdx = _routeWaypoints.length - 1;
-            _stage = 3;
-          });
-          HapticFeedback.vibrate();
-          _showArrivalToast();
-          return;
-        }
-
-        setState(() {
-          _currentWpIdx++;
-        });
-
-        final wp = _routeWaypoints[_currentWpIdx];
-        await RiderApiService.updateLocation(
-          widget.order.orderId,
-          wp["lat"]!,
-          wp["lng"]!,
-        );
-      });
-    }
   }
 
   void _showArrivalToast() {
@@ -223,7 +190,7 @@ class _TripScreenState extends State<TripScreen> {
 
     if (res['success'] == true) {
       _locationService.stopStreaming();
-      _simTimer?.cancel();
+      _isGpsStreaming = false;
       setState(() => _stage = 4);
       _showSuccessCelebrationDialog();
     } else {
@@ -845,7 +812,7 @@ class _TripScreenState extends State<TripScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _isSimulating ? const Color(0xFF00C853).withValues(alpha: 0.15) : const Color(0xFF262838),
+                  color: _isGpsStreaming ? const Color(0xFF00C853).withValues(alpha: 0.15) : const Color(0xFF262838),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -853,15 +820,15 @@ class _TripScreenState extends State<TripScreen> {
                   children: [
                     CircleAvatar(
                       radius: 3,
-                      backgroundColor: _isSimulating ? const Color(0xFF00C853) : Colors.grey,
+                      backgroundColor: _isGpsStreaming ? const Color(0xFF00C853) : Colors.grey,
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      _isSimulating ? "GPS Streaming Live" : "Standby",
+                      _isGpsStreaming ? "GPS Streaming Live" : "GPS Ready",
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: _isSimulating ? const Color(0xFF00C853) : Colors.white60,
+                        color: _isGpsStreaming ? const Color(0xFF00C853) : Colors.white60,
                       ),
                     ),
                   ],
@@ -884,44 +851,29 @@ class _TripScreenState extends State<TripScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              "Route waypoint ${_currentWpIdx + 1} of ${_routeWaypoints.length} • Updating customer tracking map in real time",
+              "Route waypoint ${_currentWpIdx + 1} of ${_routeWaypoints.length} • Updating customer tracking map via live device GPS",
               style: const TextStyle(fontSize: 10, color: Colors.white60),
             ),
             const SizedBox(height: 16),
           ],
 
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _toggleSimulatedRide,
-                  icon: Icon(_isSimulating ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 16),
-                  label: Text(_isSimulating ? "Pause GPS" : "Simulate Ride", style: const TextStyle(fontSize: 12)),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: _isSimulating ? const Color(0xFF00C853) : Colors.white24),
-                    foregroundColor: _isSimulating ? const Color(0xFF00C853) : Colors.white70,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                setState(() => _stage = 3);
+                _showArrivalToast();
+              },
+              icon: const Icon(Icons.location_on_rounded, size: 18),
+              label: const Text("Arrived at Customer Location", style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFC8019),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    HapticFeedback.mediumImpact();
-                    setState(() => _stage = 3);
-                    _showArrivalToast();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFC8019),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 0,
-                  ),
-                  child: const Text("Arrived at Doorstep", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),

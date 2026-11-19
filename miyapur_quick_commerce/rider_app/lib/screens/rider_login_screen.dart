@@ -196,7 +196,7 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
                     ),
                   ),
                 ),
-                if (_devOtp != null) ...[
+                if (kDebugMode && _devOtp != null) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(12),
