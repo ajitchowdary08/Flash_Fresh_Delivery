@@ -149,6 +149,25 @@ class RiderApiService {
     return [];
   }
 
+  // 3b. Get Orders Explicitly Assigned to this Partner
+  static Future<List<RiderOrderModel>> getAssignedOrders() async {
+    try {
+      final res = await http
+          .get(
+            Uri.parse("$baseUrl/rider/orders/assigned"),
+            headers: _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data is List) {
+          return data.map((x) => RiderOrderModel.fromJson(x)).toList();
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // 4. Accept Order Atomically
   static Future<Map<String, dynamic>> acceptOrder(String orderId) async {
     try {

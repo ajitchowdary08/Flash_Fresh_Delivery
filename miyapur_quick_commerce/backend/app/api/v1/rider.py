@@ -172,6 +172,37 @@ def toggle_duty(update: RiderDutyUpdate, auth: dict = Depends(get_current_rider)
         "message": "You are now ONLINE and will receive delivery orders!" if update.is_online else "You are now OFFLINE."
     }
 
+def _serialize_order_for_rider(o: Order) -> dict:
+    payout = 35.0 + (10.0 if o.distance_km > 3.0 else 0.0)
+    return {
+        "order_id": o.id,
+        "order_number": o.order_number,
+        "status": o.status,
+        "items_count": len(o.items),
+        "distance_km": o.distance_km,
+        "delivery_address": o.delivery_address,
+        "delivery_otp": o.delivery_otp,
+        "grand_total": o.grand_total,
+        "payment_method": o.payment_method or "ONLINE",
+        "payment_status": o.payment_status or "PAID",
+        "payout_amount": payout,
+        "scheduled_slot": o.scheduled_slot,
+        "pickup_hub": settings.STORE_NAME,
+        "customer_phone": o.user.phone if (o.user and o.user.phone) else "—",
+        "latitude": o.latitude,
+        "longitude": o.longitude,
+        "rider_lat": o.rider_lat,
+        "rider_lng": o.rider_lng,
+        "items": [
+            {
+                "name": itm.product_name,
+                "variant": itm.variant_label,
+                "quantity": itm.quantity
+            }
+            for itm in o.items
+        ]
+    }
+
 @router.get("/orders/available")
 def get_available_orders(auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
     """
@@ -194,38 +225,21 @@ def get_available_orders(auth: dict = Depends(get_current_rider), db: Session = 
         )
     ).order_by(Order.created_at.desc()).all()
 
-    res = []
-    for o in orders:
-        payout = 35.0 + (10.0 if o.distance_km > 3.0 else 0.0)
-        res.append({
-            "order_id": o.id,
-            "order_number": o.order_number,
-            "status": o.status,
-            "items_count": len(o.items),
-            "distance_km": o.distance_km,
-            "delivery_address": o.delivery_address,
-            "delivery_otp": o.delivery_otp,
-            "grand_total": o.grand_total,
-            "payment_method": o.payment_method or "ONLINE",
-            "payment_status": o.payment_status or "PAID",
-            "payout_amount": payout,
-            "scheduled_slot": o.scheduled_slot,
-            "pickup_hub": settings.STORE_NAME,
-            "customer_phone": o.user.phone if (o.user and o.user.phone) else "—",
-            "latitude": o.latitude,
-            "longitude": o.longitude,
-            "rider_lat": o.rider_lat,
-            "rider_lng": o.rider_lng,
-            "items": [
-                {
-                    "name": itm.product_name,
-                    "variant": itm.variant_label,
-                    "quantity": itm.quantity
-                }
-                for itm in o.items
-            ]
-        })
-    return res
+    return [_serialize_order_for_rider(o) for o in orders]
+
+@router.get("/orders/assigned")
+def get_assigned_orders(auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):
+    """
+    Returns orders explicitly assigned to this delivery partner that are not yet delivered.
+    """
+    r = _resolve_rider(auth, db)
+    orders = db.query(Order).filter(
+        (Order.rider_id == r.id) | (Order.rider_phone == r.phone),
+        Order.status.in_(["PACKED", "OUT_FOR_DELIVERY"]),
+        Order.delivered_at.is_(None)
+    ).order_by(Order.created_at.desc()).all()
+
+    return [_serialize_order_for_rider(o) for o in orders]
 
 @router.post("/orders/{order_id}/accept")
 async def accept_order(order_id: str, auth: dict = Depends(get_current_rider), db: Session = Depends(get_db)):

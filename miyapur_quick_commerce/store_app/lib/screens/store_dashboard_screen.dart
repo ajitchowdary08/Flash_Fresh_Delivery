@@ -155,7 +155,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     final ok = res["success"] == true;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok ? (res["message"] ?? "🛵 Rider Assigned! Order Out for Delivery.") : "❌ ${res["message"] ?? "Rider assignment failed."}"),
+        content: Text(ok ? (res["message"] ?? "🛵 Rider Assigned! Order Ready for Delivery Partner.") : "❌ ${res["message"] ?? "Rider assignment failed."}"),
         backgroundColor: ok ? const Color(0xFF7C3AED) : Colors.redAccent,
       ),
     );
@@ -166,7 +166,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
     setState(() {
       _weighOrderId = orderId;
       _weighOrderNum = orderNum;
-      _weighWeightCtrl.text = "520";
+      _weighWeightCtrl.text = "";
     });
 
     showDialog(
@@ -232,7 +232,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                 const Text("Select Cut Style:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: _cutStyle,
+                  initialValue: _cutStyle,
                   items: [
                     "Curry Cut (Medium with bone)",
                     "Biryani Big Cut (Juicy pieces)",
@@ -556,7 +556,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
         margin: const EdgeInsets.only(right: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSel ? accentColor.withOpacity(0.12) : Colors.transparent,
+          color: isSel ? accentColor.withValues(alpha: 0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: isSel ? accentColor : Colors.transparent, width: 1.5),
         ),
@@ -689,7 +689,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
                     Expanded(
                       child: _activeRiders.isNotEmpty
                           ? DropdownButtonFormField<String>(
-                              value: _selectedRiders[orderId] ?? _activeRiders.first["id"],
+                              initialValue: _selectedRiders[orderId] ?? _activeRiders.first["id"],
                               items: _activeRiders
                                   .map((r) => DropdownMenuItem(
                                         value: r["id"] as String,
@@ -750,7 +750,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
           const Text("Select Order to Weigh:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
-            value: _packingQueue.any((o) => o['order_id'] == _weighOrderId) ? _weighOrderId : null,
+            initialValue: _packingQueue.any((o) => o['order_id'] == _weighOrderId) ? _weighOrderId : null,
             hint: const Text("Choose an active order...", style: TextStyle(fontSize: 12)),
             items: _packingQueue.map((o) {
               final isMeat = o['is_sunday_meat_order'] == true;
@@ -1069,7 +1069,7 @@ class _StoreDashboardScreenState extends State<StoreDashboardScreen> {
               const SizedBox(height: 12),
 
               DropdownButtonFormField<String>(
-                value: _newSelectedCategoryId,
+                initialValue: _newSelectedCategoryId,
                 items: _categories.map((c) => DropdownMenuItem(value: c["id"] as String, child: Text(c["name"] as String, style: const TextStyle(fontSize: 12)))).toList(),
                 onChanged: (v) => setState(() => _newSelectedCategoryId = v),
                 decoration: InputDecoration(labelText: "Category", border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
