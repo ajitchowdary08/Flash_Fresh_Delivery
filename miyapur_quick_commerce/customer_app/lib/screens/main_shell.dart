@@ -71,7 +71,7 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  void _updateActiveLocation(LocationModel loc) async {
+  Future<void> _updateActiveLocation(LocationModel loc) async {
     await Preferences.setString(Preferences.keyActiveLocId, loc.id);
     await Preferences.setString(Preferences.keyActiveLocName, loc.name);
     await Preferences.setString(Preferences.keyActiveLocAddress, loc.address);
@@ -95,12 +95,17 @@ class _MainShellState extends State<MainShell> {
     final savedName = Preferences.getString(Preferences.keyUserName);
 
     final activeLocName = Preferences.getString(Preferences.keyActiveLocName);
+    final activeLocAddress =
+        Preferences.getString(Preferences.keyActiveLocAddress);
     LocationModel? storedLoc;
-    if (activeLocName.isNotEmpty && !activeLocName.contains("Tap to Set")) {
+    if (activeLocName.isNotEmpty &&
+        !activeLocName.contains("Tap to Set") &&
+        activeLocAddress.isNotEmpty &&
+        !activeLocAddress.contains("Select location")) {
       storedLoc = LocationModel(
         id: Preferences.getString(Preferences.keyActiveLocId, "loc_saved"),
         name: activeLocName,
-        address: Preferences.getString(Preferences.keyActiveLocAddress),
+        address: activeLocAddress,
         latitude: Preferences.getDouble(Preferences.keyActiveLocLat, 17.495101),
         longitude: Preferences.getDouble(Preferences.keyActiveLocLng, 78.367535),
         landmark: "",
@@ -115,19 +120,29 @@ class _MainShellState extends State<MainShell> {
 
     if (savedId.isNotEmpty && savedPhone.isNotEmpty) {
       final savedAddrs = await ApiService.getSavedAddresses(savedId);
-      if (storedLoc == null && savedAddrs.isNotEmpty) {
-        final topAddr = savedAddrs.first;
-        storedLoc = LocationModel(
-          id: topAddr.id,
-          name: "${topAddr.label}: ${topAddr.houseNumber}",
-          address: topAddr.streetAddress,
-          latitude: topAddr.latitude,
-          longitude: topAddr.longitude,
-          landmark: topAddr.landmark,
-          distanceKm: topAddr.distanceKm,
-          isServiceable: topAddr.isServiceable,
-          etaMinutes: 10,
-        );
+      if (savedAddrs.isNotEmpty) {
+        final topAddr = savedAddrs.firstWhere((a) => a.isDefault,
+            orElse: () => savedAddrs.first);
+        if (storedLoc == null ||
+            storedLoc.id == "unset_loc" ||
+            storedLoc.name.contains("Tap to Set") ||
+            storedLoc.address.contains("Select location") ||
+            storedLoc.address.trim().isEmpty) {
+          storedLoc = LocationModel(
+            id: topAddr.id,
+            name: "${topAddr.label}: ${topAddr.houseNumber}",
+            address: topAddr.landmark.isNotEmpty
+                ? "${topAddr.streetAddress} (Near ${topAddr.landmark})"
+                : topAddr.streetAddress,
+            latitude: topAddr.latitude,
+            longitude: topAddr.longitude,
+            landmark: topAddr.landmark,
+            distanceKm: topAddr.distanceKm,
+            isServiceable: topAddr.isServiceable,
+            etaMinutes: 10,
+          );
+          await _updateActiveLocation(storedLoc);
+        }
       }
 
       setState(() {
@@ -162,6 +177,27 @@ class _MainShellState extends State<MainShell> {
 
     await Preferences.setString(Preferences.keyUserName, finalName);
 
+    // Fetch and sync user's saved addresses automatically upon login
+    final savedAddrs = await ApiService.getSavedAddresses(id);
+    if (savedAddrs.isNotEmpty) {
+      final topAddr = savedAddrs.firstWhere((a) => a.isDefault, orElse: () => savedAddrs.first);
+      final loc = LocationModel(
+        id: topAddr.id,
+        name: "${topAddr.label}: ${topAddr.houseNumber}",
+        address: topAddr.landmark.isNotEmpty
+            ? "${topAddr.streetAddress} (Near ${topAddr.landmark})"
+            : topAddr.streetAddress,
+        latitude: topAddr.latitude,
+        longitude: topAddr.longitude,
+        landmark: topAddr.landmark,
+        distanceKm: topAddr.distanceKm,
+        isServiceable: topAddr.isServiceable,
+        etaMinutes: 10,
+      );
+      await _updateActiveLocation(loc);
+    }
+
+    if (!mounted) return;
     setState(() {
       _userId = id;
       _userPhone = phone;
@@ -252,6 +288,7 @@ class _MainShellState extends State<MainShell> {
               userId: _userId!,
               phone: _userPhone,
               name: _userName,
+              onLocationChanged: (loc) => _updateActiveLocation(loc),
               onProfileUpdated: (newName) async {
                 await Preferences.setString(Preferences.keyUserName, newName);
                 setState(() {
@@ -408,7 +445,36 @@ class _MainShellState extends State<MainShell> {
     final isSelected = _currentIndex == index;
 
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () {
+        if (_currentIndex != index) {
+          final savedName = Preferences.getString(Preferences.keyActiveLocName);
+          final savedAddress =
+              Preferences.getString(Preferences.keyActiveLocAddress);
+          if (savedName.isNotEmpty &&
+              !savedName.contains("Tap to Set") &&
+              savedAddress.isNotEmpty &&
+              !savedAddress.contains("Select location")) {
+            _currentLocation = LocationModel(
+              id: Preferences.getString(Preferences.keyActiveLocId, "loc_saved"),
+              name: savedName,
+              address: savedAddress,
+              latitude:
+                  Preferences.getDouble(Preferences.keyActiveLocLat, 17.495101),
+              longitude:
+                  Preferences.getDouble(Preferences.keyActiveLocLng, 78.367535),
+              landmark: "",
+              distanceKm:
+                  Preferences.getDouble(Preferences.keyActiveLocDist, 0.8),
+              isServiceable: Preferences.getBoolean(
+                Preferences.keyActiveLocServiceable,
+                true,
+              ),
+              etaMinutes: Preferences.getInt(Preferences.keyActiveLocEta, 10),
+            );
+          }
+        }
+        setState(() => _currentIndex = index);
+      },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),

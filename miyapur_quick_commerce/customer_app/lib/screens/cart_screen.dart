@@ -8,6 +8,7 @@ import '../widgets/glass_card.dart';
 import '../widgets/liquid_toast.dart';
 import 'cashfree_web_view.dart';
 import 'order_tracking_screen.dart';
+import 'select_location_screen.dart';
 
 class CartScreen extends StatefulWidget {
   final List<CartItemModel> cartItems;
@@ -51,19 +52,30 @@ class _CartScreenState extends State<CartScreen> {
     _refreshActiveLocationFromPrefs();
   }
 
-  /// Reloads the active delivery location from SharedPreferences. The Profile
-  /// screen saves a new address directly to prefs, but the cart screen holds a
-  /// stale copy of the home-screen's location — so without this refresh the
-  /// customer could open the cart and still see "Tap to Set Delivery Address"
-  /// even after adding an address in their profile. We re-read the persisted
-  /// record so the cart always reflects the latest saved address.
-  void _refreshActiveLocationFromPrefs() {
+  @override
+  void didUpdateWidget(CartScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.deliveryLocation != oldWidget.deliveryLocation) {
+      _activeLocation = widget.deliveryLocation;
+    }
+    _refreshActiveLocationFromPrefs();
+  }
+
+  /// Reloads the active delivery location from SharedPreferences or user's saved profile addresses.
+  void _refreshActiveLocationFromPrefs() async {
     final savedName = Preferences.getString(Preferences.keyActiveLocName);
-    if (savedName.isNotEmpty && !savedName.contains("Tap to Set")) {
+    final savedAddress = Preferences.getString(Preferences.keyActiveLocAddress);
+
+    bool isPrefAddressValid = savedName.isNotEmpty &&
+        !savedName.contains("Tap to Set") &&
+        savedAddress.isNotEmpty &&
+        !savedAddress.contains("Select location");
+
+    if (isPrefAddressValid) {
       final refreshed = LocationModel(
         id: Preferences.getString(Preferences.keyActiveLocId, "loc_saved"),
         name: savedName,
-        address: Preferences.getString(Preferences.keyActiveLocAddress),
+        address: savedAddress,
         latitude: Preferences.getDouble(Preferences.keyActiveLocLat, 17.495101),
         longitude: Preferences.getDouble(
           Preferences.keyActiveLocLng,
@@ -77,16 +89,67 @@ class _CartScreenState extends State<CartScreen> {
         ),
         etaMinutes: Preferences.getInt(Preferences.keyActiveLocEta, 10),
       );
-      // Only adopt it if it's more complete than what we already have (avoids
-      // overwriting an in-memory selection the user just made in this session).
-      if (_activeLocation.id == "unset_loc" ||
-          _activeLocation.name.contains("Tap to Set") ||
-          _activeLocation.address.contains("Select location")) {
+      if (!mounted) return;
+      setState(() {
         _activeLocation = refreshed;
-      } else if (refreshed.id != _activeLocation.id) {
-        _activeLocation = refreshed;
+      });
+      widget.onLocationChanged?.call(refreshed);
+      return;
+    }
+
+    // SharedPreferences doesn't have a complete valid address yet; fetch from user's saved profile addresses
+    if (widget.userId != null && widget.userId!.isNotEmpty) {
+      final savedAddrs = await ApiService.getSavedAddresses(widget.userId!);
+      if (!mounted) return;
+      if (savedAddrs.isNotEmpty) {
+        final top = savedAddrs.firstWhere((a) => a.isDefault, orElse: () => savedAddrs.first);
+        final loc = LocationModel(
+          id: top.id,
+          name: "${top.label}: ${top.houseNumber}",
+          address: top.landmark.isNotEmpty
+              ? "${top.streetAddress} (Near ${top.landmark})"
+              : top.streetAddress,
+          latitude: top.latitude,
+          longitude: top.longitude,
+          landmark: top.landmark,
+          distanceKm: top.distanceKm,
+          isServiceable: top.isServiceable,
+          etaMinutes: 10,
+        );
+        await Preferences.setString(Preferences.keyActiveLocId, loc.id);
+        await Preferences.setString(Preferences.keyActiveLocName, loc.name);
+        await Preferences.setString(Preferences.keyActiveLocAddress, loc.address);
+        await Preferences.setDouble(Preferences.keyActiveLocLat, loc.latitude);
+        await Preferences.setDouble(Preferences.keyActiveLocLng, loc.longitude);
+        await Preferences.setDouble(Preferences.keyActiveLocDist, loc.distanceKm);
+        await Preferences.setBoolean(Preferences.keyActiveLocServiceable, loc.isServiceable);
+        await Preferences.setInt(Preferences.keyActiveLocEta, loc.etaMinutes);
+        if (mounted) {
+          setState(() {
+            _activeLocation = loc;
+          });
+          widget.onLocationChanged?.call(loc);
+        }
       }
     }
+  }
+
+  void _openSelectLocationScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SelectLocationScreen(
+          currentLocation: _activeLocation,
+          userId: widget.userId,
+          onSelectLocation: (loc) {
+            setState(() {
+              _activeLocation = loc;
+            });
+            widget.onLocationChanged?.call(loc);
+          },
+        ),
+      ),
+    );
   }
 
   double get itemsTotal =>
@@ -789,6 +852,44 @@ class _CartScreenState extends State<CartScreen> {
         _activeLocation.address.contains("Select location") ||
         _activeLocation.address.trim().isEmpty;
 
+    // If unset, proactively check if user already has saved address in profile before prompting
+    if (isAddressUnset && widget.userId != null && widget.userId!.isNotEmpty) {
+      final savedAddrs = await ApiService.getSavedAddresses(widget.userId!);
+      if (savedAddrs.isNotEmpty) {
+        final top =
+            savedAddrs.firstWhere((a) => a.isDefault, orElse: () => savedAddrs.first);
+        final loc = LocationModel(
+          id: top.id,
+          name: "${top.label}: ${top.houseNumber}",
+          address: top.landmark.isNotEmpty
+              ? "${top.streetAddress} (Near ${top.landmark})"
+              : top.streetAddress,
+          latitude: top.latitude,
+          longitude: top.longitude,
+          landmark: top.landmark,
+          distanceKm: top.distanceKm,
+          isServiceable: top.isServiceable,
+          etaMinutes: 10,
+        );
+        await Preferences.setString(Preferences.keyActiveLocId, loc.id);
+        await Preferences.setString(Preferences.keyActiveLocName, loc.name);
+        await Preferences.setString(Preferences.keyActiveLocAddress, loc.address);
+        await Preferences.setDouble(Preferences.keyActiveLocLat, loc.latitude);
+        await Preferences.setDouble(Preferences.keyActiveLocLng, loc.longitude);
+        await Preferences.setDouble(Preferences.keyActiveLocDist, loc.distanceKm);
+        await Preferences.setBoolean(
+            Preferences.keyActiveLocServiceable, loc.isServiceable);
+        await Preferences.setInt(Preferences.keyActiveLocEta, loc.etaMinutes);
+        if (mounted) {
+          setState(() {
+            _activeLocation = loc;
+          });
+          widget.onLocationChanged?.call(loc);
+        }
+        isAddressUnset = false;
+      }
+    }
+
     if (isAddressUnset) {
       _showMandatoryAddressPrompt();
       return;
@@ -1017,6 +1118,19 @@ class _CartScreenState extends State<CartScreen> {
                                     color: Color(0xFF111827),
                                   ),
                                 ),
+                                if (_activeLocation.address.isNotEmpty &&
+                                    !_activeLocation.address.contains("Select location")) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _activeLocation.address,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                                 Text(
                                   "⚡ ~${_activeLocation.etaMinutes} mins (${_activeLocation.distanceKm.toStringAsFixed(1)} km from Central Hub)",
                                   style: TextStyle(
@@ -1026,6 +1140,17 @@ class _CartScreenState extends State<CartScreen> {
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _openSelectLocationScreen,
+                            child: const Text(
+                              "Change",
+                              style: TextStyle(
+                                color: Color(0xFF059669),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],

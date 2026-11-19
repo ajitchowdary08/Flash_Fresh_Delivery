@@ -15,6 +15,7 @@ class ProfileScreen extends StatefulWidget {
   final String phone;
   final String name;
   final Function(String newName)? onProfileUpdated;
+  final Function(LocationModel)? onLocationChanged;
   final VoidCallback onLogout;
 
   const ProfileScreen({
@@ -23,6 +24,7 @@ class ProfileScreen extends StatefulWidget {
     required this.phone,
     required this.name,
     this.onProfileUpdated,
+    this.onLocationChanged,
     required this.onLogout,
   });
 
@@ -48,6 +50,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
       defaultPhone: widget.phone,
     );
     final addrs = await ApiService.getSavedAddresses(widget.userId);
+
+    // If active location in Preferences is unset/placeholder, auto-sync the user's default saved address
+    final activeLocName = Preferences.getString(Preferences.keyActiveLocName);
+    final activeLocAddr = Preferences.getString(Preferences.keyActiveLocAddress);
+    if ((activeLocName.isEmpty ||
+            activeLocName.contains("Tap to Set") ||
+            activeLocAddr.isEmpty ||
+            activeLocAddr.contains("Select location")) &&
+        addrs.isNotEmpty) {
+      final top =
+          addrs.firstWhere((a) => a.isDefault, orElse: () => addrs.first);
+      final loc = LocationModel(
+        id: top.id,
+        name: "${top.label}: ${top.houseNumber}",
+        address: top.landmark.isNotEmpty
+            ? "${top.streetAddress} (Near ${top.landmark})"
+            : top.streetAddress,
+        latitude: top.latitude,
+        longitude: top.longitude,
+        landmark: top.landmark,
+        distanceKm: top.distanceKm,
+        isServiceable: top.isServiceable,
+        etaMinutes: 10,
+      );
+      await Preferences.setString(Preferences.keyActiveLocId, loc.id);
+      await Preferences.setString(Preferences.keyActiveLocName, loc.name);
+      await Preferences.setString(Preferences.keyActiveLocAddress, loc.address);
+      await Preferences.setDouble(Preferences.keyActiveLocLat, loc.latitude);
+      await Preferences.setDouble(Preferences.keyActiveLocLng, loc.longitude);
+      await Preferences.setDouble(Preferences.keyActiveLocDist, loc.distanceKm);
+      await Preferences.setBoolean(
+        Preferences.keyActiveLocServiceable,
+        loc.isServiceable,
+      );
+      await Preferences.setInt(Preferences.keyActiveLocEta, loc.etaMinutes);
+      widget.onLocationChanged?.call(loc);
+    }
 
     if (!mounted) return;
     setState(() {
@@ -850,19 +889,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 .clamp(8, 120)
                                 .round();
 
+                            final savedLoc = LocationModel(
+                              id: "loc_${DateTime.now().millisecondsSinceEpoch}",
+                              name: "$selectedTag: $flatText",
+                              address: landmarkText.isNotEmpty
+                                  ? "$streetText (Near $landmarkText)"
+                                  : streetText,
+                              latitude: finalLat,
+                              longitude: finalLng,
+                              landmark: landmarkText,
+                              distanceKm: distKm,
+                              isServiceable: true,
+                              etaMinutes: etaMins,
+                            );
+
                             await Preferences.setString(
                               Preferences.keyActiveLocId,
-                              "loc_${DateTime.now().millisecondsSinceEpoch}",
+                              savedLoc.id,
                             );
                             await Preferences.setString(
                               Preferences.keyActiveLocName,
-                              "$selectedTag: $flatText",
+                              savedLoc.name,
                             );
                             await Preferences.setString(
                               Preferences.keyActiveLocAddress,
-                              landmarkText.isNotEmpty
-                                  ? "$streetText (Near $landmarkText)"
-                                  : streetText,
+                              savedLoc.address,
                             );
                             await Preferences.setDouble(
                               Preferences.keyActiveLocLat,
@@ -884,6 +935,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Preferences.keyActiveLocEta,
                               etaMins,
                             );
+
+                            widget.onLocationChanged?.call(savedLoc);
 
                             if (!mounted) return;
                             _fetchProfileAndAddresses();
@@ -1256,19 +1309,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 .clamp(8, 120)
                                 .round();
 
+                            final savedLoc = LocationModel(
+                              id: addr.id,
+                              name: "$selectedTag: $flatText",
+                              address: landmarkText.isNotEmpty
+                                  ? "$streetText (Near $landmarkText)"
+                                  : streetText,
+                              latitude: addr.latitude,
+                              longitude: addr.longitude,
+                              landmark: landmarkText,
+                              distanceKm: distKm,
+                              isServiceable: true,
+                              etaMinutes: etaMins,
+                            );
+
                             await Preferences.setString(
                               Preferences.keyActiveLocId,
-                              "loc_${DateTime.now().millisecondsSinceEpoch}",
+                              savedLoc.id,
                             );
                             await Preferences.setString(
                               Preferences.keyActiveLocName,
-                              "$selectedTag: $flatText",
+                              savedLoc.name,
                             );
                             await Preferences.setString(
                               Preferences.keyActiveLocAddress,
-                              landmarkText.isNotEmpty
-                                  ? "$streetText (Near $landmarkText)"
-                                  : streetText,
+                              savedLoc.address,
                             );
                             await Preferences.setDouble(
                               Preferences.keyActiveLocLat,
@@ -1290,6 +1355,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Preferences.keyActiveLocEta,
                               etaMins,
                             );
+
+                            widget.onLocationChanged?.call(savedLoc);
 
                             if (!mounted) return;
                             _fetchProfileAndAddresses();
@@ -1685,12 +1752,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         )
                       else
                         ..._addresses.map(
-                          (addr) => GlassCard(
-                            blur: 16,
-                            opacity: 0.9,
-                            borderRadius: 20,
-                            margin: const EdgeInsets.only(bottom: 10),
-                            borderColor: Colors.grey.shade200,
+                          (addr) {
+                            final currentActiveId =
+                                Preferences.getString(Preferences.keyActiveLocId);
+                            final currentActiveAddr = Preferences.getString(
+                                Preferences.keyActiveLocAddress);
+                            final isActive = (currentActiveId.isNotEmpty &&
+                                    currentActiveId == addr.id) ||
+                                (currentActiveAddr.isNotEmpty &&
+                                    currentActiveAddr
+                                        .contains(addr.streetAddress));
+
+                            return GlassCard(
+                              blur: 16,
+                              opacity: 0.9,
+                              borderRadius: 20,
+                              margin: const EdgeInsets.only(bottom: 10),
+                              borderColor: isActive
+                                  ? const Color(0xFF059669)
+                                  : Colors.grey.shade200,
+                              onTap: () async {
+                                final loc = LocationModel(
+                                  id: addr.id,
+                                  name: "${addr.label}: ${addr.houseNumber}",
+                                  address: addr.landmark.isNotEmpty
+                                      ? "${addr.streetAddress} (Near ${addr.landmark})"
+                                      : addr.streetAddress,
+                                  latitude: addr.latitude,
+                                  longitude: addr.longitude,
+                                  landmark: addr.landmark,
+                                  distanceKm: addr.distanceKm,
+                                  isServiceable: addr.isServiceable,
+                                  etaMinutes: 10,
+                                );
+                                await Preferences.setString(
+                                    Preferences.keyActiveLocId, loc.id);
+                                await Preferences.setString(
+                                    Preferences.keyActiveLocName, loc.name);
+                                await Preferences.setString(
+                                    Preferences.keyActiveLocAddress,
+                                    loc.address);
+                                await Preferences.setDouble(
+                                    Preferences.keyActiveLocLat, loc.latitude);
+                                await Preferences.setDouble(
+                                    Preferences.keyActiveLocLng, loc.longitude);
+                                await Preferences.setDouble(
+                                    Preferences.keyActiveLocDist,
+                                    loc.distanceKm);
+                                await Preferences.setBoolean(
+                                  Preferences.keyActiveLocServiceable,
+                                  loc.isServiceable,
+                                );
+                                await Preferences.setInt(
+                                    Preferences.keyActiveLocEta, loc.etaMinutes);
+                                widget.onLocationChanged?.call(loc);
+                                if (mounted) {
+                                  setState(() {});
+                                  LiquidToast.show(
+                                    context,
+                                    message:
+                                        "📍 Delivery address set to ${addr.label}",
+                                    icon: Icons.check_circle_rounded,
+                                    accentColor: const Color(0xFF059669),
+                                  );
+                                }
+                              },
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -1717,16 +1843,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               color: Color(0xFF111827),
                                             ),
                                           ),
-                                          if (addr.isDefault) ...[
+                                          if (isActive) ...[
                                             const SizedBox(width: 8),
                                             Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 1,
-                                                  ),
+                                                horizontal: 6,
+                                                vertical: 1,
+                                              ),
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFF059669),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: const Text(
+                                                "DELIVERING HERE",
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          ] else if (addr.isDefault) ...[
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 1,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey.shade600,
                                                 borderRadius:
                                                     BorderRadius.circular(4),
                                               ),
@@ -1750,6 +1898,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           color: Colors.grey.shade700,
                                         ),
                                       ),
+                                      if (!isActive)
+                                        const Padding(
+                                          padding: EdgeInsets.only(top: 4.0),
+                                          child: Text(
+                                            "Tap to select for delivery",
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Color(0xFF059669),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -1798,8 +1958,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ],
                             ),
-                          ),
-                        ),
+                          );
+                        },
+                      ),
 
                       const SizedBox(height: 16),
 

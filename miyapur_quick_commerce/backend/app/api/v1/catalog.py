@@ -7,11 +7,6 @@ from app.schemas.schemas import PromoCodeValidateRequest
 
 router = APIRouter(prefix="/catalog", tags=["Catalog & Sunday Meat Engine"])
 
-# Promo codes have been RETIRED. The /promos/* endpoints below are kept only
-# for backward compatibility with older app builds and now always return
-# "no promos" / "invalid". The PromoCode model + DB table are left intact so
-# historical order rows still deserialize, but no discount is ever applied.
-
 @router.get("/categories")
 def get_categories(db: Session = Depends(get_db)):
     """
